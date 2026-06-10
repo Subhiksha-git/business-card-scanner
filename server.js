@@ -1,0 +1,175 @@
+/*
+─────────────────────────────────────────────────────────────
+CardScan — WhatsApp Backend  (server.js)
+─────────────────────────────────────────────────────────────
+*/
+'use strict';
+
+require('dotenv').config();
+
+const path       = require('path');
+const express    = require('express');
+const cors       = require('cors');
+const axios      = require('axios');
+const rateLimit  = require('express-rate-limit');
+
+const app  = express();
+const PORT = process.env.PORT || 3000;
+
+// ── Validate required env vars ───────────────────────────────
+const REQUIRED = ['WHATSAPP_TOKEN', 'PHONE_NUMBER_ID'];
+const missing  = REQUIRED.filter(k => !process.env[k]);
+if (missing.length) {
+  console.error('[startup] Missing required environment variables:', missing.join(', '));
+  process.exit(1);
+}
+
+const WA_TOKEN         = process.env.WHATSAPP_TOKEN;
+const PHONE_NUMBER_ID  = process.env.PHONE_NUMBER_ID;
+const WA_API_URL       = `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`;
+const ALLOWED_ORIGIN   = process.env.ALLOWED_ORIGIN || 'http://localhost:8080';
+const allowedOrigins   = ALLOWED_ORIGIN.split(',').map(u => u.trim()).filter(Boolean);
+
+// ── Middleware ───────────────────────────────────────────────
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('CORS policy: origin not allowed'));
+  },
+  methods: ['POST', 'OPTIONS'],
+}));
+
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({ limit: '64kb' }));
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { success: false, error: 'Too many requests — try again in a minute.' },
+});
+
+// ── Helper: sanitise phone number ─────────────────────────────
+function sanitisePhone(raw) {
+  if (!raw) return null;
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length === 10) return '91' + digits;   // default India
+  if (digits.length >= 11 && digits.length <= 15) return digits;
+  return null;
+}
+
+// ── Helper: build message text ────────────────────────────────
+function buildMessage(name, company) {
+  const firstName = name ? name.split(' ')[0] : 'there';
+  let msg = `Hello ${firstName}, thank you for connecting with us.`;
+  if (company) msg += ` We look forward to staying in touch with ${company}.`;
+  return msg;
+}
+
+// ── POST /api/send-whatsapp ───────────────────────────────────
+app.post('/api/send-whatsapp', limiter, async (req, res) => {
+  const { to, name, company } = req.body;
+
+  if (!to) {
+    return res.status(400).json({ success: false, error: 'Missing required field: to (phone number)' });
+  }
+
+  const phone = sanitisePhone(to);
+  if (!phone) {
+    return res.status(400).json({
+      success: false,
+      error: `Invalid phone number: "${to}". Must be 10–15 digits.`,
+    });
+  }
+
+  const messageText = buildMessage(name || '', company || '');
+  console.log(`[send-whatsapp] to: ${phone} | name: ${name || '—'} | company: ${company || '—'}`);
+
+  try {
+    // Example using a template with parameters
+    const payload = {
+      messaging_product: 'whatsapp',
+      to: phone,
+      type: 'template',
+      template: {
+        name: '3p_direct_integration_test_template',
+        language: { code: 'en_US' },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: messageText }
+            ]
+          }
+        ]
+      }
+    };
+
+    const response = await axios.post(WA_API_URL, payload, {
+      headers: {
+        Authorization: `Bearer ${WA_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000,
+    });
+
+    const messageId = response.data?.messages?.[0]?.id || null;
+    console.log(`[send-whatsapp] ✅ Sent — messageId: ${messageId}`);
+
+    return res.json({ success: true, messageId, to: phone });
+
+  } catch (err) {
+    const metaError = err.response?.data?.error;
+    const status    = err.response?.status;
+
+    console.error('[send-whatsapp] ❌ Failed');
+    console.error('[send-whatsapp] HTTP status :', status);
+    console.error('[send-whatsapp] Meta error  :', JSON.stringify(metaError, null, 2));
+
+    let userMessage = 'WhatsApp send failed';
+    if (metaError) {
+      const code = metaError.code;
+      if (code === 190)  userMessage = 'Access token expired or invalid — regenerate it';
+      else if (code === 131030) userMessage = 'Recipient phone number not on WhatsApp';
+      else if (code === 131031) userMessage = 'WhatsApp Business account not verified';
+      else if (code === 131047) userMessage = 'Recipient may have blocked you';
+      else if (code === 131056) userMessage = 'Too many messages sent to this number recently';
+      else userMessage = metaError.message || metaError.error_data?.details || 'Unknown Meta API error';
+    } else if (err.code === 'ECONNABORTED') {
+      userMessage = 'Request timed out';
+    } else if (err.code === 'ENOTFOUND') {
+      userMessage = 'DNS lookup failed';
+    }
+
+    return res.status(status || 500).json({
+      success: false,
+      error: userMessage,
+      code: metaError?.code,
+    });
+  }
+});
+
+// ── Root route ────────────────────────────────────────────────
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'cardscan.html'));
+});
+
+// ── Health check ──────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    phoneNumberId: PHONE_NUMBER_ID,
+    tokenSet: !!WA_TOKEN,
+  });
+});
+
+// ── 404 catch-all ─────────────────────────────────────────────
+app.use((req, res) => res.status(404).json({ success: false, error: 'Not found' }));
+
+// ── Start server ──────────────────────────────────────────────
+app.listen(PORT, () => {
+  console.log(`[startup] CardScan WhatsApp backend running on port ${PORT}`);
+  console.log(`[startup] Accepting requests from: ${ALLOWED_ORIGIN}`);
+  console.log(`[startup] Phone Number ID: ${PHONE_NUMBER_ID}`);
+  console.log(`[startup] Token loaded: ${WA_TOKEN ? 'YES (' + WA_TOKEN.slice(0,6) + '...)' : 'NO — check .env'}`);
+});

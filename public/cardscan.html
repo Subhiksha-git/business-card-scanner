@@ -1,0 +1,3493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CardScan — Business Card Scanner</title>
+
+<!--
+  SELF-CONTAINED SINGLE FILE
+  ══════════════════════════
+  • All CSS is embedded in <style> tags below
+  • All JavaScript is embedded in <script> tags below
+  • Fonts: system font stack (no external dependency)
+  • Icons: inline SVG (no external CDN dependency)
+  • Works offline for saved contacts and UI navigation
+  • Contacts saved to localStorage
+  • OCR via local Tesseract.js (works online and offline)
+-->
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   RESET & TOKENS
+   ═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Colour palette — light modern blue & white theme */
+  --bg:          #f5f7fa;
+  --bg2:         #ffffff;
+  --bg3:         #f0f4f8;
+  --bg4:         #e8ecf1;
+  --bg5:         #dde3eb;
+
+  --border:      #e0e6ed;
+  --border2:     #d0d8e3;
+  --border3:     #c0cad8;
+
+  --text:        #1f2937;
+  --text2:       #374151;
+  --text3:       #6b7280;
+  --text4:       #9ca3af;
+
+  --green:       #10b981;
+  --green2:      #059669;
+  --green-bg:    #ecfdf5;
+  --green-bd:    #d1fae5;
+  --green-text:  #10b981;
+
+  --blue:        #2563eb;
+  --blue2:       #1d4ed8;
+  --blue-bg:     #eff6ff;
+  --blue-bd:     #dbeafe;
+  --blue-text:   #2563eb;
+
+  --amber:       #f59e0b;
+  --amber-bg:    #fffbeb;
+  --amber-bd:    #fef3c7;
+  --amber-text:  #d97706;
+
+  --red:         #ef4444;
+  --red-bg:      #fef2f2;
+  --red-bd:      #fee2e2;
+  --red-text:    #dc2626;
+
+  --purple:      #8b5cf6;
+  --purple-bg:   #faf5ff;
+  --purple-bd:   #f3e8ff;
+
+  /* Spacing */
+  --r-sm:  8px;
+  --r-md:  12px;
+  --r-lg:  16px;
+  --r-xl:  20px;
+
+  /* Typography */
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+          'Helvetica Neue', Arial, sans-serif;
+  --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas,
+          'Liberation Mono', monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════ */
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background:  var(--bg);
+  color:       var(--text);
+  font-size:   14px;
+  line-height: 1.5;
+  min-height:  100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+button  { font-family: var(--font); cursor: pointer; border: none; }
+input, textarea { font-family: var(--font); outline: none; }
+a { color: var(--blue-text); text-decoration: none; }
+a:hover { text-decoration: underline; }
+::selection { background: var(--blue-bg); color: var(--blue-text); }
+
+/* ═══════════════════════════════════════════════════════════
+   APP SHELL
+   ═══════════════════════════════════════════════════════════ */
+#app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 230px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.logo {
+  padding: 18px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+.logo-mark {
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(59,130,246,.35);
+}
+.logo-mark svg { width: 18px; height: 18px; }
+.logo-name { font-size: 15px; font-weight: 700; letter-spacing: -.4px; }
+.logo-name span { color: var(--blue-text); }
+.logo-tag { font-size: 10.5px; color: var(--text3); letter-spacing: .02em; }
+
+.nav { padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
+
+.nav-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--r-md);
+  font-size: 13.5px; color: var(--text2);
+  background: none; border: none; width: 100%; text-align: left;
+  cursor: pointer; transition: all .14s;
+}
+.nav-btn:hover { background: var(--bg3); color: var(--text); }
+.nav-btn.active { background: var(--blue-bg); color: var(--blue-text); }
+.nav-btn svg { width: 17px; height: 17px; flex-shrink: 0; opacity: .7; }
+.nav-btn.active svg { opacity: 1; }
+.nav-pill {
+  margin-left: auto; font-size: 10px; font-weight: 600;
+  padding: 1px 7px; border-radius: 99px;
+  background: var(--blue-bg); color: var(--blue-text);
+  border: 1px solid var(--blue-bd); display: none;
+}
+
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+.api-badge {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 11px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--r-md); font-size: 12px;
+}
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: var(--amber); transition: background .3s;
+}
+.status-dot.ok  { background: var(--green); }
+.status-dot.err { background: var(--red); }
+#api-label { color: var(--text3); font-size: 12px; }
+
+/* ── Main ── */
+.main {
+  flex: 1; min-width: 0; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+
+/* ── Page header ── */
+.page-hdr {
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--border);
+  background: white;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 10;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.page-hdr-left h1 { font-size: 18px; font-weight: 700; letter-spacing: -.4px; color: var(--text); }
+.page-hdr-left p  { font-size: 13px; color: var(--text2); margin-top: 3px; }
+.page-hdr-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* ── Page body ── */
+.page-body { padding: 28px; flex: 1; background: var(--bg); }
+
+/* ── Pages ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ═══════════════════════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 18px; border-radius: var(--r-lg);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer; border: none;
+  background: var(--bg3); color: var(--text);
+  transition: all .2s;
+  white-space: nowrap; line-height: 1;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.btn:hover   { opacity: .9; box-shadow: 0 2px 6px rgba(0,0,0,0.12); transform: translateY(-1px); }
+.btn:active  { transform: scale(.98); }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+.btn-primary { background: var(--blue); color: white; border: none; }
+.btn-primary:hover { background: var(--blue2); }
+.btn-success { background: var(--green); color: white; border: none; }
+.btn-success:hover { background: var(--green2); }
+.btn-danger  { background: var(--red); color: white; border: none; }
+.btn-danger:hover { background: #dc2626; }
+.btn-amber   { background: var(--amber); color: white; border: none; }
+.btn-amber:hover { background: #d97706; }
+.btn-ghost   { background: white; color: var(--text2); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--bg3); color: var(--text); }
+
+.btn-sm { padding: 7px 14px; font-size: 13px; }
+.btn-sm svg { width: 14px; height: 14px; }
+.btn-icon {
+  width: 40px; height: 40px; padding: 0;
+  justify-content: center; border-radius: var(--r-md);
+}
+.btn-icon svg { width: 18px; height: 18px; }
+
+/* ═══════════════════════════════════════════════════════════
+   INPUTS
+   ═══════════════════════════════════════════════════════════ */
+.inp {
+  width: 100%; padding: 11px 14px;
+  background: white; border: 1px solid var(--border);
+  border-radius: var(--r-lg); color: var(--text);
+  font-size: 14px; font-family: var(--font);
+  transition: all .2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.inp:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); outline: none; }
+.inp::placeholder { color: var(--text3); }
+.inp[type=password] { letter-spacing: .1em; }
+
+/* ═══════════════════════════════════════════════════════════
+   CARDS
+   ═══════════════════════════════════════════════════════════ */
+.card {
+  background: white;
+  border: none;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06);
+  transition: box-shadow .2s;
+}
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.card-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: white;
+}
+.card-title {  font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; gap: 7px; color: var(--text2);
+}
+.card-title svg { width: 16px; height: 16px; }
+.card-body  { padding: 14px 16px; }
+.card-body-sm { padding: 10px 14px; }
+
+/* ═══════════════════════════════════════════════════════════
+   BANNERS / ALERTS
+   ═══════════════════════════════════════════════════════════ */
+.banner {
+  border-radius: var(--r-lg); padding: 13px 15px;
+  font-size: 13px; line-height: 1.6;
+  display: none; align-items: flex-start; gap: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.banner.show    { display: flex; }
+.banner svg     { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+.banner-body    { flex: 1; min-width: 0; }
+.banner-title   { font-weight: 700; margin-bottom: 2px; }
+.banner-detail  { opacity: .85; line-height: 1.6; }
+.banner-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+.b-ok     { background: var(--green-bg); border: 1px solid var(--green-bd); color: var(--green-text); }
+.b-err    { background: var(--red-bg); border: 1px solid var(--red-bd); color: var(--red-text); }
+.b-warn   { background: var(--amber-bg); border: 1px solid var(--amber-bd); color: var(--amber-text); }
+.b-info   { background: var(--blue-bg); border: 1px solid var(--blue-bd); color: var(--blue-text); }
+
+/* ═══════════════════════════════════════════════════════════
+   STATS ROW
+   ═══════════════════════════════════════════════════════════ */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.stat {
+  background: white; border: none;
+  border-radius: var(--r-lg); padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  transition: box-shadow .2s;
+}
+.stat:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.stat-label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; font-weight: 600; }
+.stat-value { font-size: 28px; font-weight: 700; letter-spacing: -.6px; line-height: 1; }
+.stat-value.c-green  { color: var(--green); }
+.stat-value.c-blue   { color: var(--blue-text); }
+.stat-value.c-amber  { color: var(--amber-text); }
+.stat-value.c-purple { color: var(--purple); }
+.stat-sub { font-size: 11px; color: var(--text4); margin-top: 5px; }
+
+/* ═══════════════════════════════════════════════════════════
+   SCAN PAGE
+   ═══════════════════════════════════════════════════════════ */
+.scan-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* Tab switcher */
+.tabs {
+  display: flex; gap: 0;
+  background: var(--bg3); border-radius: var(--r-md);
+  padding: 3px; margin-bottom: 14px;
+}
+.tab {
+  flex: 1; padding: 6px;
+  text-align: center; font-size: 12.5px; font-weight: 500;
+  color: var(--text3); border-radius: var(--r-sm);
+  cursor: pointer; border: none; background: none;
+  transition: all .15s; display: flex; align-items: center;
+  justify-content: center; gap: 6px;
+}
+.tab svg { width: 13px; height: 13px; }
+.tab.on {
+  background: #2563eb; 
+  color: white;
+  border: 1px solid #2563ed;
+}
+#tab-up.on {
+  background: #93c5fd;
+  color: #1e3a8a;
+  border: 1px solid #93c5fd;
+}
+
+#tab-cam.on {
+  background: #86efac;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+/* Drop zone */
+.drop {
+  border: 1.5px dashed var(--border3);
+  border-radius: var(--r-lg);
+  padding: 30px 16px; text-align: center;
+  cursor: pointer; transition: all .2s;
+  position: relative; background: var(--bg3);
+  user-select: none;
+}
+.drop:hover, .drop.over {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+}
+.drop input[type=file] {
+  position: absolute; inset: 0; opacity: 0;
+  cursor: pointer; width: 100%; height: 100%;
+}
+.drop svg.dz-icon {
+  width: 32px; height: 32px; color: var(--text4);
+  display: block; margin: 0 auto 10px;
+  transition: color .2s;
+}
+.drop:hover svg.dz-icon, .drop.over svg.dz-icon { color: var(--blue-text); }
+.drop .dz-title { font-size: 13.5px; font-weight: 500; color: var(--text2); margin-bottom: 3px; }
+.drop .dz-sub   { font-size: 12px; color: var(--text4); }
+
+/* Image preview */
+.preview-wrap { position: relative; margin-top: 14px; display: none; }
+.preview-wrap img {
+  width: 100%; max-height: 200px; object-fit: contain;
+  border-radius: var(--r-lg); border: 1px solid var(--border);
+  background: white; display: block;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.scan-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.5); border-radius: var(--r-lg);
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+}
+.scan-overlay.on { display: flex; }
+.overlay-spinner { color: #fff; }
+.overlay-txt { color: white; font-size: 13px; font-weight: 600; }
+
+/* Camera */
+video {
+  width: 100%; max-height: 200px; object-fit: cover;
+  border-radius: var(--r-lg); background: #000;
+  display: none;
+}
+video.on { display: block; }
+.cam-ph {
+  border: 2px dashed var(--border);  border-radius: var(--r-lg);
+  padding: 32px 20px; text-align: center; background: var(--bg3);
+}
+.cam-ph svg { width: 40px; height: 40px; color: var(--text2); display: block; margin: 0 auto 10px; }
+.cam-ph p   { font-size: 14px; color: var(--text2); }
+.cam-btns   { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
+/* Progress bar */
+.prog { height: 3px; background: var(--bg4); border-radius: 99px; overflow: hidden; margin-top: 10px; display: none; }
+.prog.on { display: block; }
+.prog-fill { height: 100%; border-radius: 99px; background: var(--blue); transition: width .4s ease; width: 0%; }
+
+/* Pipeline debug */
+.pipeline {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; font-family: var(--mono);
+}
+.p-step {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 4px 6px; border-radius: var(--r-sm);
+}
+.p-step svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; }
+.p-step span em { color: var(--text3); font-style: normal; }
+
+.p-pend   { color: var(--text4); }
+.p-active { color: var(--blue-text); background: var(--blue-bg); }
+.p-ok     { color: var(--green-text); }
+.p-err    { color: var(--red-text); }
+
+/* ═══════════════════════════════════════════════════════════
+   EXTRACTED FIELDS
+   ═══════════════════════════════════════════════════════════ */
+.fields { display: flex; flex-direction: column; gap: 12px; }
+
+.field {
+  background: white; border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 12px 15px;
+  transition: all .2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.field:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.08); }
+
+.field-lbl {
+  font-size: 11px; color: var(--text2);
+  text-transform: uppercase; letter-spacing: .07em;
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 6px; font-weight: 600;
+}
+.field-lbl svg { width: 13px; height: 13px; }
+
+.field input {
+  width: 100%; background: none; border: none;
+  color: var(--text); font-size: 15px;
+  font-family: var(--font);
+  font-weight: 500;
+}
+.field input::placeholder { color: var(--text3); }
+
+/* Raw text */
+.raw-toggle {
+  font-size: 12px; color: var(--text2); cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 14px; user-select: none;
+  transition: color .2s;
+}
+.raw-toggle:hover { color: var(--blue); }
+.raw-toggle svg { width: 14px; height: 14px; }
+pre.raw {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 10px 12px;
+  font-family: var(--mono); font-size: 10.5px;
+  color: var(--text3); white-space: pre-wrap;
+  max-height: 130px; overflow-y: auto;
+  margin-top: 6px; display: none; line-height: 1.5;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CONTACTS PAGE
+   ═══════════════════════════════════════════════════════════ */
+.search-wrap {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 7px 12px;
+  flex: 1; max-width: 280px;
+}
+.search-wrap svg { width: 14px; height: 14px; color: var(--text4); flex-shrink: 0; }
+.search-wrap input {
+  background: none; border: none;
+  color: var(--text); font-size: 13px; width: 100%;
+  font-family: var(--font);
+}
+.search-wrap input::placeholder { color: var(--text4); }
+
+.contacts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+}
+
+.c-card {
+  background: white; border: none;
+  border-radius: var(--r-lg); padding: 18px;
+  position: relative; transition: all .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.c-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-2px); }
+
+.c-time {
+  position: absolute; top: 16px; right: 16px;
+  font-size: 11px; color: var(--text3);
+  font-weight: 500;
+}
+.c-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+
+.avatar {
+  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--blue), var(--blue2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; color: white;
+}
+.c-name    { font-size: 15px; font-weight: 700; letter-spacing: -.2px; color: var(--text); }
+.c-company { font-size: 13px; color: var(--text2); margin-top: 3px; }
+
+.c-fields {
+  border-top: 1px solid var(--border);
+  padding-top: 12px; margin-bottom: 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.c-field {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: var(--text);
+}
+.c-field svg { width: 15px; height: 15px; color: var(--blue); flex-shrink: 0; }
+.c-field a   { color: var(--blue); font-weight: 500; }
+
+.c-actions { display: flex; gap: 8px; }
+.wa-btn {
+  flex: 1; background: var(--green); color: white;
+  border: none; border-radius: var(--r-md);
+  padding: 9px 12px; font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  cursor: pointer; transition: all .2s; font-family: var(--font);
+  box-shadow: 0 1px 3px rgba(16,185,129,0.2);
+}
+.wa-btn:hover { background: var(--green2); box-shadow: 0 2px 6px rgba(16,185,129,0.3); }
+.wa-btn svg { width: 15px; height: 15px; }
+
+.empty {
+  text-align: center; padding: 60px 20px; color: var(--text3);
+  grid-column: 1 / -1;
+}
+.empty svg { width: 50px; height: 50px; display: block; margin: 0 auto 16px; color: var(--border); }
+.empty p   { font-size: 14px; }
+
+/* ═══════════════════════════════════════════════════════════
+   SETTINGS PAGE
+   ═══════════════════════════════════════════════════════════ */
+.settings-form  { max-width: 540px; }
+.settings-section {
+  font-size: 12px; font-weight: 700; color: var(--text);
+  text-transform: uppercase; letter-spacing: .1em;
+  margin: 26px 0 14px; padding-bottom: 10px;
+  border-bottom: 2px solid var(--blue);
+}
+.cfg-field  { margin-bottom: 14px; }
+.cfg-label  {
+  font-size: 13px; color: var(--text); font-weight: 600;
+  display: block; margin-bottom: 7px;
+}
+.cfg-row    { display: flex; gap: 10px; align-items: center; }
+.cfg-row .inp { flex: 1; }
+
+.info-box {
+  background: var(--blue-bg); border: 1px solid var(--blue-bd);
+  border-radius: var(--r-lg); padding: 15px 17px;
+  font-size: 13px; color: var(--blue); line-height: 1.7;
+  margin-top: 20px;
+}
+.info-box strong { display: block; margin-bottom: 6px; font-size: 14px; color: var(--blue); }
+code {
+  font-family: var(--mono); font-size: 12px;
+  background: white; border: 1px solid var(--blue-bd);
+  border-radius: var(--r-sm); padding: 2px 6px;
+  color: var(--blue);
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   WA MODAL
+   ═══════════════════════════════════════════════════════════ */
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  display: none; align-items: center; justify-content: center;
+  z-index: 200; backdrop-filter: blur(6px);
+}
+.modal-bg.open { display: flex; }
+
+.modal {
+  background: white; border: none;
+  border-radius: var(--r-lg); padding: 28px;
+  width: 420px; max-width: 95vw; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15), 0 0 1px rgba(0,0,0,0.1);
+}
+.modal-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; color: var(--text); }
+.modal-title svg { width: 20px; height: 20px; color: var(--blue); }
+.modal-sub   { font-size: 14px; color: var(--text2); margin-bottom: 18px; line-height: 1.6; }
+
+.tmpl {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 13px 15px;
+  margin-bottom: 10px; cursor: pointer; transition: all .2s;
+}
+.tmpl:hover { border-color: var(--blue); background: var(--blue-bg); }
+.tmpl.sel   { border-color: var(--blue); background: var(--blue-bg); }
+.tmpl-lbl   { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; font-weight: 600; }
+.tmpl-txt   { font-size: 13px; color: var(--text); line-height: 1.5; }
+
+.custom-msg {
+  width: 100%; background: white; border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 11px 14px;
+  color: var(--text); font-size: 14px; font-family: var(--font);
+  resize: vertical; min-height: 90px; margin-top: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.custom-msg::placeholder { color: var(--text3); }
+.custom-msg:focus { border-color: var(--blue); outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* ═══════════════════════════════════════════════════════════
+   TOASTS
+   ═══════════════════════════════════════════════════════════ */
+#toasts {
+  position: fixed; bottom: 24px; right: 24px;
+  display: flex; flex-direction: column; gap: 10px; z-index: 300;
+}
+.toast {
+  background: white; border: none;
+  border-radius: var(--r-lg); padding: 14px 16px;
+  font-size: 13px; display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.08);
+  animation: slideIn .3s ease-out;
+  min-width: 240px; max-width: 340px;
+}
+@keyframes slideIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.toast svg { width: 15px; height: 15px; flex-shrink: 0; }
+.toast.t-ok   { color: var(--green-text); }
+.toast.t-err  { color: var(--red-text); }
+.toast.t-info { color: var(--blue-text); }
+.toast.t-warn { color: var(--amber-text); }
+
+/* ═══════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════ */
+@keyframes spin  { to { transform: rotate(360deg); } }
+.spin { animation: spin .85s linear infinite; display: inline-block; }
+
+@keyframes fade-in { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:none; } }
+.fade-in { animation: fade-in .2s ease both; }
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLLBARS
+   ═══════════════════════════════════════════════════════════ */
+::-webkit-scrollbar       { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 860px) {
+  .scan-grid { grid-template-columns: 1fr; }
+  .stats     { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .sidebar   { display: none; }
+  .stats     { grid-template-columns: repeat(2, 1fr); }
+  .page-body { padding: 14px 12px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FOLLOW-UP PANEL (WhatsApp + Email)
+   ═══════════════════════════════════════════════════════════ */
+.followup-panel {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  display: none;
+}
+.followup-panel.show { display: block; }
+
+.followup-head {
+  padding: 11px 16px;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; font-weight: 600;
+  color: var(--text3); text-transform: uppercase; letter-spacing: .06em;
+  display: flex; align-items: center; gap: 7px;
+}
+.followup-head svg { width: 14px; height: 14px; color: var(--text3); }
+
+.followup-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.fup-btn {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 7px; padding: 18px 12px;
+  cursor: pointer; border: none;
+  background: var(--bg2);
+  transition: background .15s;
+  font-family: var(--font);
+  position: relative;
+}
+.fup-btn:first-child { border-right: 1px solid var(--border); }
+.fup-btn:hover { background: var(--bg3); }
+.fup-btn:disabled { opacity: .4; cursor: not-allowed; }
+.fup-btn:disabled:hover { background: var(--bg2); }
+
+.fup-icon {
+  width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.fup-icon svg { width: 22px; height: 22px; }
+.fup-icon.wa  { background: #0d2e18; border: 1px solid #174d2e; }
+.fup-icon.wa svg { color: #4ade80; }
+.fup-icon.em  { background: var(--blue-bg); border: 1px solid var(--blue-bd); }
+.fup-icon.em svg { color: var(--blue-text); }
+
+.fup-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.fup-sub   { font-size: 11px; color: var(--text3); text-align: center; line-height: 1.4; }
+
+.fup-spinner {
+  position: absolute; top: 8px; right: 8px;
+  width: 16px; height: 16px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--blue-text);
+  border-radius: 50%;
+  animation: fup-spin .7s linear infinite;
+  display: none;
+}
+.fup-spinner.on { display: block; }
+@keyframes fup-spin { to { transform: rotate(360deg); } }
+
+.fup-result {
+  padding: 8px 16px;
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+  display: none;
+  align-items: center;
+  gap: 7px;
+}
+.fup-result.show { display: flex; }
+.fup-result svg  { width: 14px; height: 14px; flex-shrink: 0; }
+.fup-result.ok   { color: var(--green-text); }
+.fup-result.err  { color: var(--red-text); }
+
+/* ── Email modal ── */
+.email-modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.75);
+  display: none; align-items: center; justify-content: center;
+  z-index: 220; backdrop-filter: blur(4px);
+}
+.email-modal.open { display: flex; }
+.email-modal .modal {
+  width: 480px; max-width: 96vw;
+}
+.email-modal .modal-title svg { color: var(--blue-text); }
+.email-preview {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 14px 16px;
+  margin: 12px 0;
+}
+.ep-row {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 12.5px; margin-bottom: 6px;
+}
+.ep-row:last-child { margin-bottom: 0; }
+.ep-label { color: var(--text4); width: 60px; flex-shrink: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.ep-val   { color: var(--text2); flex: 1; }
+.ep-val.highlight { color: var(--text); font-weight: 500; }
+.ep-body  {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--text2); line-height: 1.6;
+}
+
+.email-field-row { margin-bottom: 12px; }
+.email-field-lbl {
+  font-size: 12px; color: var(--text2); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px; font-weight: 600;
+}
+.email-field-lbl svg { width: 13px; height: 13px; }
+.email-textarea {
+  width: 100%; background: white; border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 11px 14px;
+  color: var(--text); font-size: 14px; font-family: var(--font);
+  resize: vertical; min-height: 100px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: all .2s;
+}
+.email-textarea:focus { border-color: var(--blue); outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+.email-textarea::placeholder { color: var(--text3); }
+
+.emailjs-note {
+  font-size: 12px; color: var(--text2); line-height: 1.6;
+  padding: 12px 14px; background: var(--blue-bg);
+  border: 1px solid var(--blue-bd); border-radius: var(--r-md);
+  margin-top: 12px;
+}
+.emailjs-note a { color: var(--blue); font-weight: 600; }
+
+/* EmailJS config section */
+.emailjs-cfg {
+  background: var(--blue-bg); border: 1px solid var(--blue-bd);
+  border-radius: var(--r-lg); padding: 16px 18px; margin-top: 16px;
+}
+.emailjs-cfg-title {
+  font-size: 14px; font-weight: 700; color: var(--blue);
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.emailjs-cfg-title svg { width: 16px; height: 16px; }
+.emailjs-cfg-sub {
+  font-size: 13px; color: var(--blue); margin-bottom: 12px; line-height: 1.6;
+}
+.emailjs-cfg-sub a { color: var(--blue); font-weight: 600; }
+.emailjs-cfg-fields { display: flex; flex-direction: column; gap: 10px; }
+.emailjs-cfg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Status badges in contacts card */
+.c-followup-row {
+  display: flex; gap: 6px; margin-top: 10px;
+  flex-wrap: wrap;
+}
+.badge-sent {
+  font-size: 10.5px; padding: 2px 7px; border-radius: 99px;
+  font-weight: 500; display: inline-flex; align-items: center; gap: 4px;
+}
+.badge-sent svg { width: 11px; height: 11px; }
+.badge-wa { background: #0d2e18; color: #4ade80; border: 1px solid #174d2e; }
+.badge-em { background: var(--blue-bg); color: var(--blue-text); border: 1px solid var(--blue-bd); }
+
+
+/* ═══════════════════════════════════════════════════════════
+   AUTO-SCAN PANEL STATES
+   Three states: idle → scanning → done
+   ═══════════════════════════════════════════════════════════ */
+
+
+/* Idle state — shown before any scan */
+.idle-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 20px; text-align: center; gap: 12px;
+}
+.idle-state svg {
+  width: 48px; height: 48px; color: var(--border2);
+}
+.idle-state h3 { font-size: 14px; font-weight: 500; color: var(--text3); }
+.idle-state p  { font-size: 12.5px; color: var(--text4); line-height: 1.5; max-width: 220px; }
+
+/* Scanning state — pulsing skeleton while OCR runs */
+.scanning-state {
+  display: none;
+  flex-direction: column; gap: 10px;
+  padding: 6px 2px;
+}
+.scanning-state.show { display: flex; }
+
+.scan-status-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 12px;
+  background: var(--blue-bg); border: 1px solid var(--blue-bd);
+  border-radius: var(--r-md);
+  font-size: 12.5px; color: var(--blue-text);
+  margin-bottom: 4px;
+}
+.scan-status-row svg { width: 16px; height: 16px; flex-shrink: 0; }
+.scan-status-txt { font-weight: 500; }
+.scan-status-sub { font-size: 11px; color: #93c5fd; margin-top: 1px; }
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skel {
+  border-radius: var(--r-md);
+  background: linear-gradient(90deg,
+    var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.skel-field {
+  height: 58px; width: 100%;
+  border-radius: var(--r-md);
+}
+.skel-label { height: 12px; width: 60px; margin-bottom: 8px; }
+.skel-input { height: 20px; width: 100%; }
+.skel-wrap  { padding: 9px 13px; background: var(--bg3);
+              border: 1px solid var(--border); border-radius: var(--r-md); }
+
+/* Done state — field-by-field reveal animation */
+.done-state { display: none; flex-direction: column; gap: 10px; }
+.done-state.show { display: flex; }
+
+@keyframes field-pop {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.field-animated {
+  animation: field-pop .25s ease both;
+}
+.field-animated:nth-child(1) { animation-delay: .00s; }
+.field-animated:nth-child(2) { animation-delay: .06s; }
+.field-animated:nth-child(3) { animation-delay: .12s; }
+.field-animated:nth-child(4) { animation-delay: .18s; }
+.field-animated:nth-child(5) { animation-delay: .24s; }
+
+/* Value highlight — green pulse when field is filled */
+@keyframes val-highlight {
+  0%   { background: var(--green-bg); }
+  100% { background: var(--bg3); }
+}
+.field.filled { animation: val-highlight .6s ease forwards; }
+.field.empty  { border-color: var(--border); opacity: .55; }
+
+/* Success banner at top of done-state */
+.success-banner {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 11px 13px;
+  background: var(--green-bg); border: 1px solid var(--green-bd);
+  border-radius: var(--r-lg);
+  animation: field-pop .3s ease both;
+}
+.success-banner svg  { width: 18px; height: 18px; color: var(--green-text); flex-shrink: 0; margin-top: 1px; }
+.success-banner-body { flex: 1; }
+.success-banner-title { font-size: 13px; font-weight: 600; color: var(--green-text); margin-bottom: 2px; }
+.success-banner-sub   { font-size: 11.5px; color: #86efac; }
+
+/* Field value pill — shows filled value prominently */
+.field-val-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+}
+.field-filled-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); flex-shrink: 0;
+  box-shadow: 0 0 6px var(--green);
+}
+
+/* Save + action row */
+.done-actions {
+  display: flex; gap: 10px;
+  animation: field-pop .25s ease .32s both;
+  margin-top: 6px;
+}
+
+/* File info strip above preview */
+.file-info-strip {
+  display: none;
+  align-items: center; gap: 10px;
+  padding: 10px 13px;
+  background: var(--blue-bg); border: 1px solid var(--blue-bd);
+  border-radius: var(--r-md); margin-bottom: 12px;
+  font-size: 12px; color: var(--blue);
+  font-weight: 500;
+}
+.file-info-strip.show { display: flex; }
+.file-info-strip svg { width: 14px; height: 14px; color: var(--text4); flex-shrink: 0; }
+.file-name { color: var(--text2); font-weight: 500; max-width: 160px;
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { color: var(--text4); margin-left: auto; }
+
+/* Upload button glow when ready */
+.drop.ready {
+  border-color: var(--green);
+  background: var(--green-bg);
+}
+
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">
+        <!-- Card + scan icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2"/>
+          <path d="M16 10h.01M8 10h.01M12 10h.01M12 14h.01"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-name">Card<span>Scan</span></div>
+        <div class="logo-tag">Tesseract OCR · Local</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-btn active" data-page="scan" onclick="showPage('scan')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+          <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+          <rect x="7" y="7" width="10" height="10" rx="1"/>
+        </svg>
+        Scan Card
+      </button>
+      <button class="nav-btn" data-page="contacts" onclick="showPage('contacts')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Contacts
+        <span class="nav-pill" id="contacts-pill">0</span>
+      </button>
+      <button class="nav-btn" data-page="settings" onclick="showPage('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Settings
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="api-badge">
+        <div class="status-dot ok" id="api-dot"></div>
+        <span id="api-label">Tesseract ready</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════ MAIN ═════════════════════════ -->
+  <main class="main">
+
+    <!-- ════════════ PAGE: SCAN ════════════ -->
+    <div id="page-scan" class="page active">
+      <div class="page-hdr">
+        <div class="page-hdr-left">
+          <h1>Scan business card</h1>
+          <p>Upload or capture — name, company, phone, email & website extracted automatically</p>
+        </div>
+        <div class="page-hdr-right">
+          <span id="attempt-badge" style="font-size:11.5px;color:var(--text4);font-family:var(--mono);display:none"></span>
+        </div>
+      </div>
+      <div class="page-body">
+
+        <!-- Stats -->
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-label">Total scanned</div>
+            <div class="stat-value c-green" id="s-total">0</div>
+            <div class="stat-sub">all time</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">This session</div>
+            <div class="stat-value c-blue" id="s-session">0</div>
+            <div class="stat-sub">since page load</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">WA sent</div>
+            <div class="stat-value c-amber" id="s-wa">0</div>
+            <div class="stat-sub">messages opened</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">OCR engine</div>
+            <div class="stat-value c-purple" style="font-size:15px;padding-top:5px">Tesseract.js</div>
+            <div class="stat-sub">Local OCR · eng</div>
+          </div>
+        </div>
+
+        <!-- Error banner -->
+        <div class="banner b-err fade-in" id="err-banner" style="margin-bottom:16px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div class="banner-body">
+            <div class="banner-title" id="err-title">OCR failed</div>
+            <div class="banner-detail" id="err-detail"></div>
+            <div class="banner-actions">
+              <button class="btn btn-amber btn-sm" id="btn-retry-banner" onclick="retryNow()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.6"/></svg>
+                Retry
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="hideErr()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Two-column scan layout -->
+        <div class="scan-grid">
+
+          <!-- LEFT: image input -->
+          <div style="display:flex;flex-direction:column;gap:14px">
+
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Upload / Camera
+                </div>
+              </div>
+              <div class="card-body">
+
+                <div class="tabs">
+                  <button class="tab on" id="tab-up" onclick="setTab('upload')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                    Upload
+                  </button>
+                  <button class="tab" id="tab-cam" onclick="setTab('camera')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    Camera
+                  </button>
+                </div>
+
+                <!-- Upload pane -->
+                <div id="pane-upload">
+                  <div class="drop" id="drop"
+                       ondragover="event.preventDefault();this.classList.add('over')"
+                       ondragleave="this.classList.remove('over')"
+                       ondrop="onDrop(event)">
+                    <input type="file" accept="image/jpeg,image/jpg,image/png" id="file-inp" onchange="onFilePick(event)"/>
+                    <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <div class="dz-title">Click or drag & drop</div>
+                    <div class="dz-sub">JPG · JPEG · PNG</div>
+                  </div>
+                </div>
+
+                <!-- Camera pane -->
+                <div id="pane-cam" style="display:none">
+                  <video id="cam-vid" playsinline autoplay></video>
+                  <div class="cam-ph" id="cam-ph">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    <p>Press Start to activate</p>
+                  </div>
+                  <div class="cam-btns">
+                    <button class="btn btn-primary btn-sm" id="btn-start" onclick="startCam()">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                      Start camera
+                    </button>
+                    <button class="btn btn-success btn-sm" id="btn-capture" onclick="captureCam()" style="display:none">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      Capture
+                    </button>
+                    <button class="btn btn-ghost btn-sm" id="btn-stop" onclick="stopCam()" style="display:none">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><line x1="1" y1="5" x2="1" y2="19"/><line x1="1" y1="12" x2="16" y2="12"/></svg>
+                      Stop
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Preview + overlay -->
+                <div class="preview-wrap" id="preview-wrap">
+                  <img id="preview-img" alt="Business card preview"/>
+                  <div class="scan-overlay" id="scan-overlay">
+                    <svg class="overlay-spinner spin" style="width:28px;height:28px;color:#fff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
+                    <span class="overlay-txt" id="overlay-txt">Scanning…</span>
+                  </div>
+                </div>
+
+                <!-- Progress bar -->
+                <div class="prog" id="prog"><div class="prog-fill" id="prog-fill"></div></div>
+
+              </div>
+            </div>
+
+            <!-- Pipeline -->
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                  OCR pipeline
+                </div>
+              </div>
+              <div class="card-body-sm">
+                <div class="pipeline" id="pipeline"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: extracted fields — 3 states: idle / scanning / done -->
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title" id="panel-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  Extracted contact
+                </div>
+                <div style="display:flex;gap:6px" id="panel-head-actions">
+                  <button class="btn btn-ghost btn-sm" id="btn-clear-fields" onclick="clearFieldsToIdle()" style="display:none">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Reset
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+
+                <!-- ── STATE 1: IDLE ── -->
+                <div class="idle-state" id="state-idle">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="3"/>
+                    <path d="M3 9h18M9 21V9"/>
+                    <circle cx="16" cy="15" r="2.5" stroke-dasharray="2 1"/>
+                  </svg>
+                  <h3>Waiting for a business card</h3>
+                  <p>Upload or drag a JPG / PNG image on the left — OCR starts automatically</p>
+                </div>
+
+                <!-- ── STATE 2: SCANNING (skeleton) ── -->
+                <div class="scanning-state" id="state-scanning">
+                  <div class="scan-status-row">
+                    <svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+                      <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+                      <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+                      <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+                    </svg>
+                    <div>
+                      <div class="scan-status-txt" id="scan-status-txt">Scanning…</div>
+                      <div class="scan-status-sub" id="scan-status-sub">Tesseract OCR · auto-started</div>
+                    </div>
+                  </div>
+                  <!-- Skeleton fields -->
+                  <div class="skel skel-field"></div>
+                  <div class="skel skel-field"></div>
+                  <div class="skel skel-field"></div>
+                  <div class="skel skel-field"></div>
+                  <div class="skel skel-field" style="width:70%"></div>
+                </div>
+
+                <!-- ── STATE 3: DONE (real fields) ── -->
+                <div class="done-state" id="state-done">
+
+                  <!-- Success / warning banner -->
+                  <div class="success-banner" id="success-banner">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <div class="success-banner-body">
+                      <div class="success-banner-title" id="success-banner-title">Extraction complete</div>
+                      <div class="success-banner-sub"   id="success-banner-sub">Review fields below, then save.</div>
+                    </div>
+                  </div>
+
+                  <!-- Animated fields -->
+                  <div class="field field-animated" id="fd-name-wrap">
+                    <div class="field-lbl">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      Full name
+                      <div class="field-filled-dot" id="dot-name" style="display:none"></div>
+                    </div>
+                    <input id="f-name" placeholder="Not detected — enter manually"/>
+                  </div>
+
+                  <div class="field field-animated" id="fd-company-wrap">
+                    <div class="field-lbl">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                      Company
+                      <div class="field-filled-dot" id="dot-company" style="display:none"></div>
+                    </div>
+                    <input id="f-company" placeholder="Not detected — enter manually"/>
+                  </div>
+
+                  <div class="field field-animated" id="fd-phone-wrap">
+                    <div class="field-lbl">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.55 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                      Phone
+                      <div class="field-filled-dot" id="dot-phone" style="display:none"></div>
+                    </div>
+                    <input id="f-phone" type="tel" placeholder="Not detected — enter manually"/>
+                  </div>
+
+                  <div class="field field-animated" id="fd-email-wrap">
+                    <div class="field-lbl">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                      Email
+                      <div class="field-filled-dot" id="dot-email" style="display:none"></div>
+                    </div>
+                    <input id="f-email" type="email" placeholder="Not detected — enter manually"/>
+                  </div>
+
+                  <div class="field field-animated" id="fd-website-wrap">
+                    <div class="field-lbl">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                      Website
+                      <div class="field-filled-dot" id="dot-website" style="display:none"></div>
+                    </div>
+                    <input id="f-website" placeholder="Not detected — enter manually"/>
+                  </div>
+
+                  <!-- Actions -->
+                  <div class="done-actions">
+                    <button class="btn btn-success" id="btn-save" onclick="saveContact()" style="flex:1;justify-content:center">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13"/><polyline points="7 3 7 8 15 8"/></svg>
+                      Save contact
+                    </button>
+                    <button class="btn btn-ghost btn-sm" onclick="clearFieldsToIdle()">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.6"/></svg>
+                      Scan another
+                    </button>
+                  </div>
+
+                </div><!-- /state-done -->
+
+                <!-- raw text toggle — lives outside states so it's always accessible -->
+                <div class="banner fade-in" id="ocr-banner" style="margin-top:10px;display:none"></div>
+                <div class="raw-toggle" id="raw-toggle" onclick="toggleRaw()" style="display:none">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                  Show raw OCR text
+                </div>
+                <pre class="raw" id="raw-box"></pre>
+
+              </div>
+            </div>
+          </div>
+        </div><!-- /scan-grid -->
+      </div>
+    </div><!-- /page-scan -->
+
+    <!-- ════════════ PAGE: CONTACTS ════════════ -->
+    <div id="page-contacts" class="page">
+      <div class="page-hdr">
+        <div class="page-hdr-left">
+          <h1>Saved contacts</h1>
+          <p id="contacts-sub">0 contacts</p>
+        </div>
+        <div class="page-hdr-right">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="Search name, company…" id="search-inp" oninput="renderContacts()"/>
+          </div>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="contacts-grid" id="contacts-grid"></div>
+      </div>
+    </div>
+
+    <!-- ════════════ PAGE: SETTINGS ════════════ -->
+    <div id="page-settings" class="page">
+      <div class="page-hdr">
+        <div class="page-hdr-left">
+          <h1>Settings</h1>
+          <p>No API key required — OCR runs locally with Tesseract.</p>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="settings-form">
+
+          <div class="settings-section">Tesseract OCR</div>
+
+          <div class="cfg-field">
+            <label class="cfg-label">Local OCR status</label>
+            <div class="cfg-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+              <div style="max-width:700px">
+                <p style="margin:0 0 8px;line-height:1.5">
+                  This app now uses Tesseract.js locally for all scans, both online and offline. No external OCR service or API key is required.
+                </p>
+                <p style="margin:0;line-height:1.5">
+                  Ensure <code>node_modules/tesseract.js/dist/worker.min.js</code>, <code>tessdata/</code>, and <code>node_modules/tesseract.js-core</code> are available when serving the app.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="banner fade-in" id="key-banner" style="margin-top:10px"></div>
+
+          <div class="info-box">
+            <strong>
+              <svg style="display:inline;width:14px;height:14px;vertical-align:-2px;margin-right:5px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Setup guide
+            </strong>
+            <b>OCR engine:</b> Tesseract.js local recognition<br/>
+            <b>No key required:</b> works without external services<br/>
+            <b>Storage:</b> contacts saved to <code>localStorage</code> as <code>cs_contacts</code><br/>
+            <b>Request format:</b> no network request — all OCR runs locally<br/>
+            <b>Console:</b> press F12 → Console to see OCR worker logs and debug output<br/>
+            <b>Contacts:</b> saved locally and editable before save<br/>
+            <b>Email:</b> EmailJS config still stored in <code>cs_ejs_service</code>, <code>cs_ejs_template</code>, <code>cs_ejs_pubkey</code>
+          </div>
+
+          <div class="settings-section" style="margin-top:28px">EmailJS Configuration</div>
+          <p style="font-size:12.5px;color:var(--text3);line-height:1.6;margin-bottom:14px">
+            EmailJS lets you send emails directly from the browser — no server needed.<br/>
+            <a href="https://www.emailjs.com" target="_blank" style="color:var(--blue-text)">Sign up free at emailjs.com</a>
+            → create a service + template → paste IDs below.
+          </p>
+          <div class="emailjs-cfg">
+            <div class="emailjs-cfg-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              EmailJS credentials
+            </div>
+            <div class="emailjs-cfg-sub">
+              All three values are required to send emails.
+              Your <a href="https://dashboard.emailjs.com/admin/account" target="_blank">Public Key</a> is on the Account page.
+            </div>
+            <div class="emailjs-cfg-fields">
+              <div class="emailjs-cfg-row">
+                <div>
+                  <label class="cfg-label" style="font-size:12px">Service ID</label>
+                  <input class="inp" id="ejs-service" placeholder="service_xxxxxxx"/>
+                </div>
+                <div>
+                  <label class="cfg-label" style="font-size:12px">Template ID</label>
+                  <input class="inp" id="ejs-template" placeholder="template_xxxxxxx"/>
+                </div>
+              </div>
+              <div>
+                <label class="cfg-label" style="font-size:12px">Public Key</label>
+                <input class="inp" id="ejs-pubkey" placeholder="xxxxxxxxxxxxxxxxxxxxxx" type="password" style="margin-bottom:10px"/>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" onclick="saveEmailJS()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Save credentials
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="testEmailJSConfig()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>Test init()
+                </button>
+              </div>
+              <div class="banner fade-in" id="ejs-banner" style="margin-top:8px"></div>
+            </div>
+          </div>
+
+          <div style="margin-top:14px;font-size:12px;color:var(--text3);line-height:1.65">
+            <b style="color:var(--text2)">Required EmailJS template variables:</b><br/>
+            Your template must use these variables:
+            <code>{{to_email}}</code> · <code>{{to_name}}</code> · <code>{{company}}</code> · <code>{{subject}}</code> · <code>{{message}}</code><br/><small style="color:var(--color-text-tertiary,#6b7280)">Note: omit <code>{{reply_to}}</code> from your template — sending it as an empty string causes 422 errors.</small>
+          </div>
+
+          <div class="settings-section" style="margin-top:28px">Data management</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-danger btn-sm" onclick="clearAllContacts()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              Clear all contacts
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- email modal removed — email is sent automatically on Save Contact -->
+
+<!-- ═══════════════════════ WA MODAL ═════════════════════ -->
+<div class="modal-bg" id="wa-modal">
+  <div class="modal">
+    <div class="modal-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      WhatsApp follow-up
+    </div>
+    <div class="modal-sub" id="wa-sub">Sending to: —</div>
+    <div id="wa-tmpls"></div>
+    <textarea class="custom-msg" id="wa-custom" placeholder="Or type a custom message…"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeWA()">Cancel</button>
+      <button class="btn btn-success btn-sm" id="btn-wa-send" onclick="confirmWA()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Open WhatsApp
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="multi-select-modal">
+  <div class="modal">
+    <div class="modal-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11Z"/></svg>
+      Multiple contact options found
+    </div>
+    <div class="modal-sub">Select one phone number and one email address for WhatsApp/email follow-up.</div>
+    <div id="multi-phone-section" style="margin-top:12px;">
+      <div class="modal-sub" style="margin-bottom:8px;font-weight:600">Phone number</div>
+      <div id="multi-phone-options"></div>
+    </div>
+    <div id="multi-email-section" style="margin-top:16px;">
+      <div class="modal-sub" style="margin-bottom:8px;font-weight:600">Email address</div>
+      <div id="multi-email-options"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeMultiSelectModal()">Cancel</button>
+      <button class="btn btn-success btn-sm" onclick="confirmMultiSelectModal()">Save and send</button>
+    </div>
+  </div>
+</div>
+<!-- Toasts -->
+<div id="toasts"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT — all logic embedded, no external dependencies
+     ═══════════════════════════════════════════════════════════ -->
+
+<script>
+/* ─────────────────────────────
+   PAGE NAVIGATION FIX
+──────────────────────────── */
+function showPage(id) {
+  document.querySelectorAll('.page')
+    .forEach(p => p.classList.remove('active'));
+
+  document.querySelectorAll('.nav-btn')
+    .forEach(b => b.classList.remove('active'));
+
+  document.getElementById('page-' + id)
+    .classList.add('active');
+
+  document.querySelector(`[data-page="${id}"]`)
+    .classList.add('active');
+
+  if (id === 'contacts') renderContacts();
+  if (id === 'settings') loadSettingsForm();
+}
+
+/* ─────────────────────────────
+   FILE UPLOAD HANDLER
+──────────────────────────── */
+function onFilePick(e) {
+  const file = e?.target?.files?.[0];
+
+  if (!file) {
+    console.warn("No file selected");
+    return;
+  }
+
+  console.log("📁 File selected:", file.name);
+
+  startScan(file);
+}
+/* ─────────────────────────────
+   OCR FUNCTION (Tesseract wrapper)
+──────────────────────────── */
+async function tesseractOCR(dataUrl) {
+  const worker = await Tesseract.createWorker('eng', 1, {
+    logger: m => console.log("🧠 OCR Progress:", m),
+    workerPath: resolveLocalPath('/node_modules/tesseract.js/dist/worker.min.js'),
+    corePath: resolveLocalPath('/node_modules/tesseract.js-core/'),
+    langPath: resolveLocalPath('/tessdata/'),
+    gzip: true,
+  });
+
+  const { data: { text } } = await worker.recognize(dataUrl);
+
+  await worker.terminate();
+
+  return (text || "").trim();
+}
+
+console.log("✅ Scancard script loaded successfully");
+/*
+  ╔══════════════════════════════════════════════════════════════╗
+  ║  CARDSCAN — Local Tesseract OCR Integration                 ║
+  ║                                                              ║
+  ║  HOW TO USE THIS FILE:                                       ║
+  ║  1. Open in any browser (locally or via server)              ║
+  ║  2. No API key needed — just upload or capture a business card║
+  ║  3. Go to Scan Card → upload or capture a business card      ║
+  ║  4. Fields are extracted automatically                       ║
+  ║  5. Review, correct if needed → Save contact                 ║
+  ║  6. Use WhatsApp / Email buttons to follow up                ║
+  ║                                                              ║
+  ║  FILE IS COMPLETELY SELF-CONTAINED:                          ║
+  ║  • No external CSS files                                     ║
+  ║  • No external JS libraries                                  ║
+  ║  • Icons are inline SVG (zero CDN calls)                     ║
+  ║  • Fonts are system font stack (zero CDN calls)              ║
+  ║  • Works online and offline with local Tesseract OCR         ║
+  ╚══════════════════════════════════════════════════════════════╝
+*/
+
+/* ── 1. CONSTANTS & STATE ─────────────────────────────────── */
+const APP = {
+  contacts: JSON.parse(localStorage.getItem('cs_contacts') || '[]'),
+  queue:    JSON.parse(localStorage.getItem('cs_send_queue') || '[]'),
+  file:     null,
+  prevUrl:  null,
+  retries:  0,
+  MAX_R:    3,
+  session:  0,
+  waCount:  Number(localStorage.getItem('cs_wa_count') || 0),
+  camStream: null,
+  waContact: null,
+  waTmpl:    0,
+  ocrWorker: null,
+  ocrReady:  false,
+  phoneCandidates: [],
+  emailCandidates: [],
+  pendingContact: null,
+};
+
+const WA_TEMPLATES = [
+  { label: 'Nice to meet you',
+    text:  'Hi {name}! Great meeting you. Looking forward to staying in touch.' },
+  { label: 'Meeting request',
+    text:  'Hi {name}, great connecting! Would love to schedule a quick call to discuss how we could work together.' },
+  { label: 'Follow-up',
+    text:  "Hi {name}, following up after our conversation. Let me know if there's anything I can help with at {company}!" },
+  { label: 'Resource share',
+    text:  'Hi {name}! I wanted to share something that might be useful for {company}. Let me know your thoughts!' },
+];
+
+const PIPELINE_LABELS = [
+  'Validate file type (JPG/JPEG/PNG)',
+  'Compress image → max 800px, JPEG q0.8',
+  'Prepare image for OCR',
+  'Run local Tesseract OCR',
+  'Initialize Tesseract worker',
+  'Recognize text',
+  'Clean OCR output',
+  'Extract fields with regex',
+  'Fill form fields',
+];
+
+/* ── 2. BOOT ──────────────────────────────────────────────── */
+(function boot() {
+  updateStats();
+  resetPipeline();
+  renderContacts();
+  setApiDot(true);
+})();
+
+/* ── 3. PAGE NAVIGATION ───────────────────────────────────── */
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelector(`[data-page="${id}"]`).classList.add('active');
+  if (id === 'contacts')  renderContacts();
+  if (id === 'settings')  loadSettingsForm();
+}
+
+/* ── 4. LOCAL OCR STATUS ───────────────────────────────────── */
+function saveKey() {
+  showBanner('key-banner', 'info',
+    'No API key required',
+    'Tesseract runs locally in the browser for both online and offline scanning.');
+}
+
+async function testKey() {
+  showBanner('key-banner', 'info',
+    'No API key required',
+    'Tesseract is ready locally. There is no external OCR key to validate.');
+}
+
+function setApiDot(ok) {
+  const dot = document.getElementById('api-dot');
+  const label = document.getElementById('api-label');
+  if (!dot || !label) return;
+  dot.className = 'status-dot ' + (ok ? 'ok' : 'err');
+  label.textContent = ok ? 'Tesseract ready' : 'Tesseract unavailable';
+}
+
+function loadSettingsForm() {
+  const banner = document.getElementById('key-banner');
+  if (banner) banner.innerHTML = '';
+}
+
+/* ── 5. IMAGE COMPRESSION (prevents HTTP 502) ─────────────── */
+/*
+  WHY COMPRESS BEFORE OCR?
+  ────────────────────────────────────────────────────────────
+  Large phone photos can slow recognition and reduce accuracy.
+  A typical phone photo is 3–8 MB. Local Tesseract OCR performs best
+  with smaller, sharpened images.
+
+  This function uses the FileReader → Image → Canvas pipeline:
+  1. FileReader.readAsDataURL(file)  — reads bytes safely
+  2. new Image(); img.src = dataUrl — browser decodes + validates
+  3. Canvas resizes to max 800px    — enough for OCR on card text
+  4. canvas.toBlob(…, 'jpeg', 0.8)  — compress to ~80–200 KB
+  5. Resolves with a new File blob  — used in FormData
+*/
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+
+    // Only JPG/JPEG/PNG allowed
+    const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!ALLOWED.includes(file.type)) {
+      reject(new Error(`"${file.type}" not supported. Use JPG, JPEG, or PNG.`));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('FileReader failed: ' + (reader.error?.message || 'unknown')));
+    reader.onload  = () => {
+      const dataUrl = reader.result;
+      if (!dataUrl?.startsWith('data:image/')) {
+        reject(new Error('File is not a valid image')); return;
+      }
+
+      const img = new Image();
+      img.onerror = () => reject(new Error('Browser could not decode image — file may be corrupt'));
+      img.onload  = () => {
+        // Resize to max 800px (longest side)
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          const r = Math.min(MAX / w, MAX / h);
+          w = Math.round(w * r);
+          h = Math.round(h * r);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width  = w;
+        canvas.height = h;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+
+        // Contrast boost ×1.4 — sharper text → better OCR accuracy
+        const id = ctx.getImageData(0, 0, w, h);
+        const px = id.data;
+        const f = 1.4, ic = 128 * (1 - f);
+        for (let i = 0; i < px.length; i += 4) {
+          px[i]   = Math.min(255, Math.max(0, px[i]   * f + ic));
+          px[i+1] = Math.min(255, Math.max(0, px[i+1] * f + ic));
+          px[i+2] = Math.min(255, Math.max(0, px[i+2] * f + ic));
+        }
+        ctx.putImageData(id, 0, 0);
+
+        // Export as JPEG at quality 0.8
+        canvas.toBlob(blob => {
+          if (!blob) { reject(new Error('Canvas export failed')); return; }
+          console.log(`Compressed: ${(file.size/1024).toFixed(0)}KB → ${(blob.size/1024).toFixed(0)}KB (${w}×${h}px)`);
+          resolve(new File([blob], 'card.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.8);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function resolveLocalPath(path) {
+  const origin = (window.location.origin && window.location.origin !== 'null')
+    ? window.location.origin
+    : `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`;
+  return new URL(path, origin).href;
+}
+
+async function ensureOCRWorker() {
+  if (APP.ocrWorker && APP.ocrReady) {
+    return APP.ocrWorker;
+  }
+
+  if (typeof Tesseract === 'undefined' || !Tesseract.createWorker) {
+    throw {
+      code: 'OFFLINE_UNAVAILABLE', retryable: false,
+      title: 'Offline OCR unavailable',
+      detail: 'Tesseract.js did not load. Please serve cardscan.html from the project root and ensure node_modules/tesseract.js/dist/worker.min.js and tessdata/ are accessible.',
+    };
+  }
+
+  console.group('📴 Initialize Offline OCR Worker');
+  const workerPath = resolveLocalPath('/node_modules/tesseract.js/dist/worker.min.js');
+  const corePath   = resolveLocalPath('/node_modules/tesseract.js-core/');
+  const langPath   = resolveLocalPath('/tessdata/');
+  console.log('🔧 Paths:', { workerPath, corePath, langPath });
+
+  APP.ocrWorker = await Tesseract.createWorker('eng', 1, {
+    workerPath,
+    corePath,
+    langPath,
+    gzip: true,
+  });
+
+  try {
+    APP.ocrReady = true;
+    console.log('✅ OCR worker initialized');
+    return APP.ocrWorker;
+  } catch (err) {
+    if (APP.ocrWorker) await APP.ocrWorker.terminate();
+    APP.ocrWorker = null;
+    APP.ocrReady = false;
+    throw err;
+  } finally {
+    console.groupEnd();
+  }
+}
+
+async function offlineOCR(file) {
+  console.group('📴 Offline OCR');
+  const worker = await ensureOCRWorker();
+
+  try {
+    const { data: { text = '' } = {} } = await worker.recognize(file);
+    const result = String(text).trim();
+    console.log('✅ Offline OCR result length:', result.length);
+    return result;
+  } catch (offlineErr) {
+    console.error('❌ Offline OCR failed:', offlineErr);
+    throw {
+      code: 'OFFLINE_FAIL', retryable: false,
+      title: 'Offline OCR failed',
+      detail: offlineErr.message || String(offlineErr),
+    };
+  } finally {
+    console.groupEnd();
+  }
+}
+
+function warmupOCRWorker() {
+  if (APP.ocrReady) return;
+  console.log('[OCR] Warmup starting in background');
+  ensureOCRWorker().then(() => {
+    console.log('[OCR] Warmup complete — worker ready.');
+  }).catch(err => {
+    console.warn('[OCR] Warmup failed:', err);
+  });
+}
+
+/* ── 6. OCR API CALL ──────────────────────────────────────── */
+/*
+  LOCAL TESSERACT OCR FLOW:
+  ────────────────────────────────────────────────────────────
+  1. Compress the image to improve recognition speed and accuracy.
+  2. Load the Tesseract worker, core, and language data.
+  3. Recognize text locally in the browser.
+  4. No network request is made to an external OCR service.
+*/
+async function callOCR(file, attempt) {
+  console.group(`📡 OCR Attempt ${attempt}/${APP.MAX_R}`);
+  console.log('File:', file.name, `${(file.size/1024).toFixed(0)}KB`, file.type);
+
+  setStep(3, 'active', 'Running local Tesseract OCR…');
+  setStep(4, 'active', 'Initializing Tesseract…');
+
+  const rawText = await offlineOCR(file);
+
+  setStep(4, 'ok', 'Tesseract initialized');
+  setStep(5, 'active', 'Recognizing text…');
+  setStep(5, 'ok', `${rawText.length} chars recognized`);
+  setStep(6, 'active', 'Cleaning output…');
+
+  const cleaned = String(rawText || '').trim();
+  setStep(6, 'ok', 'Text ready');
+
+  console.groupEnd();
+  return cleaned;
+}
+
+/* ── 7. SCAN ENTRY POINT ──────────────────────────────────── */
+
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop').classList.remove('over');
+  if (e.dataTransfer.files[0]) startScan(e.dataTransfer.files[0]);
+}
+
+async function startScan(file) {
+  const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png'];
+  if (!ALLOWED.includes(file.type)) {
+    showErr('Invalid file type',
+      `"${file.type}" is not supported. Upload a JPG, JPEG, or PNG file.`,
+      false);
+    return;
+  }
+
+  APP.file    = file;
+  APP.retries = 0;
+
+  // Reset
+  hideErr();
+  clearOcrBanner();
+  clearFields();
+  resetPipeline();
+  document.getElementById('raw-toggle').style.display = 'none';
+  document.getElementById('raw-box').style.display    = 'none';
+  document.getElementById('raw-box').textContent      = '';
+
+  // Show preview immediately (user feedback)
+  if (APP.prevUrl) URL.revokeObjectURL(APP.prevUrl);
+  APP.prevUrl = URL.createObjectURL(file);
+  const pw = document.getElementById('preview-wrap');
+  document.getElementById('preview-img').src = APP.prevUrl;
+  document.getElementById('preview-img').alt = 'Card: ' + file.name;
+  pw.style.display = 'block';
+
+  await runCycle();
+}
+
+/* ── 8. SCAN CYCLE WITH AUTO-RETRY ───────────────────────── */
+async function runCycle() {
+  const attempt = APP.retries + 1;
+  const badge   = document.getElementById('attempt-badge');
+  badge.textContent = `Attempt ${attempt}/${APP.MAX_R}`;
+  badge.style.display = 'inline';
+
+  showOverlay(true);
+  showProg(true);
+  hideErr();
+
+  try {
+    // Step 0: validate
+    setStep(0, 'active', 'Checking…');
+    setProg(8);
+    await tick(60);
+    setStep(0, 'ok', APP.file.type);
+
+    // Step 1: compress
+    setStep(1, 'active', 'Compressing…');
+    setOT('Compressing image…');
+    setProg(18);
+    const compressed = await compressImage(APP.file);
+    setStep(1, 'ok', `${(APP.file.size/1024).toFixed(0)}KB → ${(compressed.size/1024).toFixed(0)}KB`);
+    setProg(30);
+
+    // Step 2: formdata
+    setStep(2, 'active', 'Preparing image for OCR…');
+    setProg(38);
+    await tick(50);
+    setStep(2, 'ok', 'Image ready for local OCR');
+    setProg(45);
+
+    // Steps 3-6: OCR call
+    setOT(`Scanning (attempt ${attempt})…`);
+    const rawText = await callOCR(compressed, attempt);
+    setProg(78);
+
+    // Show raw text
+    document.getElementById('raw-box').textContent      = rawText;
+    document.getElementById('raw-toggle').style.display = 'flex';
+
+    // Step 7: parse
+    setStep(7, 'active', 'Running regex…');
+    const parsed = parseContact(rawText);
+    const found  = Object.values(parsed).filter(Boolean).length;
+    setStep(7, 'ok', `${found}/5 fields found`);
+    setProg(92);
+
+    // Step 8: fill
+    setStep(8, 'active', 'Filling form…');
+    fillFields(parsed);
+    await tick(80);
+    setStep(8, 'ok', 'Done ✓');
+    setProg(100);
+
+    setTimeout(() => { showOverlay(false); showProg(false); }, 500);
+
+    badge.style.display = 'none';
+
+    // Stats
+    APP.session++;
+    document.getElementById('s-session').textContent = APP.session;
+
+    document.getElementById('btn-save').style.display = 'inline-flex';
+    if (found > 0) {
+      showOcrBanner('ok', `${found} of 5 fields extracted`, 'Review the details and click Save contact to send WhatsApp and email.');
+    } else {
+      showOcrBanner('warn', 'No structured fields parsed', 'No data was extracted. Edit the fields and click Save contact.');
+    }
+
+  } catch(err) {
+    showOverlay(false);
+    showProg(false);
+    markActiveFailed();
+    console.error('Scan error:', err);
+
+    // Auto-retry for retryable errors
+    if (err.retryable && APP.retries < APP.MAX_R - 1) {
+      APP.retries++;
+      const delay = 1500 * APP.retries;
+      showErr(
+        `Attempt ${APP.retries} failed — retrying in ${delay/1000}s…`,
+        err.detail || String(err),
+        false
+      );
+      setTimeout(runCycle, delay);
+    } else {
+      badge.style.display = 'none';
+      showErr(err.title || 'OCR failed', err.detail || String(err), true);
+    }
+  }
+}
+
+function retryNow() { APP.retries = 0; resetPipeline(); hideErr(); runCycle(); }
+
+/* ── 9. CONTACT PARSER ────────────────────────────────────── */
+/*
+  Extracts structured data from the raw OCR text string.
+  Uses regex and heuristics — all fields are editable before saving.
+*/
+
+function parseContact(text) {
+  console.group('🧩 Contact Parser FINAL');
+
+  const cleanText = String(text || '')
+    .replace(/\s{2,}/g, '\n')
+    .trim();
+
+  const lines = cleanText
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean);
+
+  const r = { name: '', company: '', phone: '', email: '', website: '' };
+
+  APP.phoneCandidates = [];
+  APP.emailCandidates = [];
+
+  // ---------------- EMAIL ----------------
+  const emailRegex = /[a-zA-Z0-9._%+\-]+@(?:[a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}/g;
+  const emails = [...new Set(cleanText.match(emailRegex) || [])];
+  APP.emailCandidates = emails;
+  if (emails.length) r.email = emails[0];
+
+  // ---------------- WEBSITE ----------------
+  const webRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/i;
+  const web = cleanText.match(webRegex);
+  if (web) r.website = web[0];
+
+  // ---------------- PHONE ----------------
+  const phoneRegex = /(\+?\d[\d\s().-]{7,}\d)/g;
+  const phones = cleanText.match(phoneRegex) || [];
+  function fixDigits(p) {
+    return String(p).replace(/[oO]/g, '0').replace(/\D/g, '');
+  }
+  const validPhones = phones.map(p => ({
+    raw: p.trim(),
+    digits: fixDigits(p)
+  })).filter(p => p.digits.length >= 8 && p.digits.length <= 15);
+  APP.phoneCandidates = [...new Set(validPhones.map(p => p.raw))];
+  if (APP.phoneCandidates.length) r.phone = APP.phoneCandidates[0];
+
+  // ---------------- SMART CLASSIFICATION ----------------
+  const titleKeywords = [
+    'engineer','developer','designer','manager','director','consultant',
+    'analyst','lead','architect','officer','executive','marketing','sales',
+    'founder','ceo','cto','coo','president','hr','operations'
+  ];
+  const companyKeywords = [
+    'pvt','ltd','llc','inc','corp','technologies','technology','consulting',
+    'group','enterprises','studio','agency','global','digital','labs'
+  ];
+
+  function isTitle(line) {
+    return titleKeywords.some(k => line.toLowerCase().includes(k));
+  }
+
+  function looksLikeCompany(line) {
+    const l = line.toLowerCase();
+    if (companyKeywords.some(k => l.includes(k))) return true;
+    if (line === line.toUpperCase() && line.length <= 40) return true;
+    if (/\b(inc|llc|corp|ltd|solutions?|technologies?|systems?|services?)\b/i.test(line)) return true;
+    return false;
+  }
+
+  function looksLikePersonName(line) {
+  const words = line.trim().split(/\s+/);
+  if (words.length < 2 || words.length > 4) return false;
+  if (/\d/.test(line)) return false;          // reject numbers
+  if (line === line.toUpperCase()) return false; // reject all caps
+  if (!/^[A-Z]/.test(line)) return false;     // must start with capital
+  if (companyKeywords.some(k => line.toLowerCase().includes(k))) return false;
+  if (isTitle(line)) return false;
+  return true;
+}
+
+  function scoreName(line) {
+    let s = 0;
+    if (/^[A-Z]/.test(line)) s += 1;
+    if (!/\d/.test(line)) s += 2;
+    const words = line.split(/\s+/);
+    if (words.length >= 2 && words.length <= 4) s += 3;
+    if (!isTitle(line)) s += 2;
+    if (companyKeywords.some(k => line.toLowerCase().includes(k))) s -= 5;
+    return s;
+  }
+
+  function scoreCompany(line) {
+    let s = 0;
+    if (companyKeywords.some(k => line.toLowerCase().includes(k))) s += 5;
+    if (line === line.toUpperCase()) s += 2;
+    if (/\b(inc|llc|corp|ltd|solutions?|technologies?|systems?|services?)\b/i.test(line)) s += 2;
+    if (line.length < 60) s += 1;
+    if (/\d/.test(line)) s -= 3;
+    return s;
+  }
+
+  function best(arr, scorer) {
+    let bestLine = '', bestScore = -999;
+    for (const line of arr) {
+      const score = scorer(line);
+      if (score > bestScore) {
+        bestScore = score;
+        bestLine = line;
+      }
+    }
+    return bestLine;
+  }
+
+  // ---------------- FILTER LINES ----------------
+  const filtered = lines.filter(line => {
+    const l = line.trim();
+    return l && l.length > 2 && !l.includes('@') && !/(www\.|http)/i.test(l);
+  });
+
+  // ---------------- COMPANY ----------------
+  const companyCandidates = filtered.filter(line => {
+    const lower = line.toLowerCase();
+    if (line.includes('@')) return false;
+    if (/(www\.|http)/i.test(line)) return false;
+    if (isTitle(line)) return false;
+    return true;
+  });
+  const constrainedCompanyCandidates = companyCandidates.filter(looksLikeCompany);
+  r.company = best(constrainedCompanyCandidates.length ? constrainedCompanyCandidates : companyCandidates, scoreCompany);
+
+  // ---------------- NAME ----------------
+  const nameCandidates = filtered.filter(line => {
+  const lower = line.toLowerCase();
+
+  if (line === r.company) return false;
+  if (line === line.toUpperCase()) return false;
+  if (isTitle(line)) return false;
+  if (companyKeywords.some(k => lower.includes(k))) return false;
+  if (looksLikeCompany(line)) return false;
+
+  // NEW: reject anything with digits (phone numbers, addresses)
+  if (/\d/.test(line)) return false;
+
+  // NEW: reject anything starting with + (phone numbers)
+  if (/^\+/.test(line)) return false;
+
+  // NEW: reject lines that look like addresses
+  if (/(road|street|avenue|tower|building|floor|india|bangalore|chennai|mumbai)/i.test(lower)) return false;
+
+  return true;
+});
+
+const constrainedNameCandidates = nameCandidates.filter(looksLikePersonName);
+r.name = best(
+  constrainedNameCandidates.length ? constrainedNameCandidates : nameCandidates,
+  scoreName
+);
+
+  // ---------------- CLEAN NAME ----------------
+  if (r.name) {
+    r.name = r.name.replace(/[|@©®™]/g, '').replace(/\s+/g, ' ').trim();
+    const words = r.name.split(' ');
+    if (words.length > 4) {
+      r.name = words.filter(w => {
+        const u = w.toUpperCase();
+        return (u !== 'TECHNOVA' && u !== 'NEXORA' && u !== 'SOLUTIONS' && u !== 'TECH');
+      }).join(' ');
+    }
+  }
+
+  // ---------------- FALLBACKS ----------------
+  if (!r.name) {
+    const fallbackName = filtered.find(line =>
+      /^[A-Za-z\s.'-]+$/.test(line) && !isTitle(line)
+    );
+    if (fallbackName) r.name = fallbackName;
+  }
+  if (!r.company) {
+    const fallbackCompany = filtered.find(line =>
+      companyKeywords.some(k => line.toLowerCase().includes(k))
+    );
+    if (fallbackCompany) r.company = fallbackCompany;
+  }
+
+  // ---------------- DEBUG ----------------
+  console.log("RAW LINES:", lines);
+  lines.forEach(line => {
+    console.log('LINE:', line, '| NAME SCORE:', scoreName(line), '| COMPANY SCORE:', scoreCompany(line));
+  });
+  console.log("FILTERED:", filtered);
+  console.log('NAME CANDIDATES:', nameCandidates);
+  console.log('PHONE CANDIDATES:', APP.phoneCandidates);
+  console.log('EMAIL CANDIDATES:', APP.emailCandidates);
+  console.log('FINAL RESULT:', r);
+
+  console.groupEnd();
+  return r;
+}
+
+
+/* ── 10. CAMERA ───────────────────────────────────────────── */
+async function startCam() {
+  try {
+    APP.camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const v = document.getElementById('cam-vid');
+    v.srcObject = APP.camStream; v.classList.add('on');
+    document.getElementById('cam-ph').style.display        = 'none';
+    document.getElementById('btn-start').style.display     = 'none';
+    document.getElementById('btn-capture').style.display   = 'inline-flex';
+    document.getElementById('btn-stop').style.display      = 'inline-flex';
+  } catch(e) {
+    toast('Camera access denied: ' + e.message, 'err');
+  }
+}
+function stopCam() {
+  APP.camStream?.getTracks().forEach(t => t.stop());
+  APP.camStream = null;
+  const v = document.getElementById('cam-vid');
+  v.srcObject = null; v.classList.remove('on');
+  document.getElementById('cam-ph').style.display      = '';
+  document.getElementById('btn-start').style.display   = 'inline-flex';
+  document.getElementById('btn-capture').style.display = 'none';
+  document.getElementById('btn-stop').style.display    = 'none';
+}
+function captureCam() {
+  const v = document.getElementById('cam-vid');
+  const c = document.createElement('canvas');
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext('2d').drawImage(v, 0, 0);
+  c.toBlob(blob => {
+    stopCam();
+    startScan(new File([blob], 'capture.jpg', { type: 'image/jpeg' }));
+  }, 'image/jpeg', 0.9);
+}
+
+/* ── 11. CONTACTS ─────────────────────────────────────────── */
+function _isDuplicateContact(contact) {
+  const phone = (contact.phone || '').trim().replace(/\D/g, '');
+  const email = (contact.email || '').trim().toLowerCase();
+
+  return APP.contacts.some(existing => {
+    const existingPhone = (existing.phone || '').trim().replace(/\D/g, '');
+    const existingEmail = (existing.email || '').trim().toLowerCase();
+    return (phone && existingPhone && phone === existingPhone) ||
+           (email && existingEmail && email === existingEmail);
+  });
+}
+
+async function saveContact() {
+  // 1. Read fields and build contact object
+  const c = {
+    id:      Date.now().toString(),
+    name:    document.getElementById('f-name').value.trim(),
+    company: document.getElementById('f-company').value.trim(),
+    phone:   document.getElementById('f-phone').value.trim(),
+    email:   document.getElementById('f-email').value.trim(),
+    website: document.getElementById('f-website').value.trim(),
+    savedAt: new Date().toISOString(),
+  };
+
+  // If OCR already populated multiple candidates, show modal.
+  // Otherwise, also check the edited form fields for multiple values
+  // (comma/semicolon/newline/slash separated) and prompt selection.
+  const fieldPhone = (document.getElementById('f-phone')||{value:''}).value.trim();
+  const fieldEmail = (document.getElementById('f-email')||{value:''}).value.trim();
+
+  // Helper: extract phone-like candidates from a string
+  const extractPhones = str => {
+    if (!str) return [];
+    const parts = str.split(/[,;\/\\|\n]+/).map(s=>s.trim()).filter(Boolean);
+    const out = [];
+    for (const p of parts) {
+      const digits = (p||'').replace(/\D/g,'');
+      if (digits.length >= 7 && digits.length <= 15) out.push(p);
+    }
+    return [...new Set(out)];
+  };
+
+  // Helper: extract email-like candidates from a string
+  const extractEmails = str => {
+    if (!str) return [];
+    const emails = (str.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[A-Za-z]{2,}/g) || []).map(s=>s.trim());
+    return [...new Set(emails)];
+  };
+
+  // Build candidate lists: prefer OCR-detected arrays, fallback to parsing the field
+  let phoneCandidates = APP.phoneCandidates && APP.phoneCandidates.length ? APP.phoneCandidates.slice() : extractPhones(fieldPhone);
+  let emailCandidates = APP.emailCandidates && APP.emailCandidates.length ? APP.emailCandidates.slice() : extractEmails(fieldEmail);
+
+  // If field contains multiple values even when APP candidates exist, merge them uniquely
+  if (APP.phoneCandidates && APP.phoneCandidates.length && fieldPhone && phoneCandidates.indexOf(fieldPhone) === -1) {
+    const extra = extractPhones(fieldPhone).filter(p => !phoneCandidates.includes(p));
+    phoneCandidates = phoneCandidates.concat(extra);
+  }
+  if (APP.emailCandidates && APP.emailCandidates.length && fieldEmail && emailCandidates.indexOf(fieldEmail) === -1) {
+    const extraE = extractEmails(fieldEmail).filter(e => !emailCandidates.includes(e));
+    emailCandidates = emailCandidates.concat(extraE);
+  }
+
+  // If there are multiple choices, prompt the user to pick one of each
+  if ((phoneCandidates && phoneCandidates.length > 1) || (emailCandidates && emailCandidates.length > 1)) {
+    APP.phoneCandidates = phoneCandidates;
+    APP.emailCandidates = emailCandidates;
+    APP.pendingContact = c;
+    showMultiSelectModal();
+    return;
+  }
+
+  // If single candidate exists, ensure it's applied to the contact object
+  if (phoneCandidates && phoneCandidates.length === 1) c.phone = phoneCandidates[0];
+  if (emailCandidates && emailCandidates.length === 1) c.email = emailCandidates[0];
+
+  _saveContactFinal(c);
+}
+
+function _saveContactFinal(c) {
+  // 1a. Duplicate detection by phone or email
+  if (_isDuplicateContact(c)) {
+    const keep = window.confirm(
+      'A contact with this phone number or email already exists.\n\nClick OK to save again and send WhatsApp/email follow-up, or Cancel to keep the existing contact.'
+    );
+    if (!keep) return;
+  }
+
+  // 2. Persist contact immediately — never waits for email or WhatsApp
+  APP.contacts.unshift(c);
+  localStorage.setItem('cs_contacts', JSON.stringify(APP.contacts));
+  document.getElementById('btn-save').style.display = 'none';
+  updateStats();
+  renderContacts();
+  // Save to Firebase Firestore
+import("https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js")
+  .then(async ({ collection, addDoc }) => {
+    await addDoc(collection(window.db, "leads"), {
+      name: c.name || "",
+      company: c.company || "",
+      phone: c.phone || "",
+      email: c.email || "",
+      website: c.website || "",
+      createdAt: new Date()
+    });
+
+    console.log("🔥 Saved to Firebase:", c);
+  })
+  .catch(err => {
+    console.error("❌ Firebase save failed:", err);
+  });
+
+  // 3. Queue follow-up sends; attempt immediately if online.
+  _queueFollowup(c);
+}
+
+function showMultiSelectModal() {
+  const modal = document.getElementById('multi-select-modal');
+  if (!modal) return;
+
+  const phoneSection = document.getElementById('multi-phone-section');
+  const emailSection = document.getElementById('multi-email-section');
+  const phoneOptions = document.getElementById('multi-phone-options');
+  const emailOptions = document.getElementById('multi-email-options');
+
+  phoneOptions.innerHTML = '';
+  emailOptions.innerHTML = '';
+
+  if (APP.phoneCandidates.length > 1) {
+    phoneSection.style.display = 'block';
+    APP.phoneCandidates.forEach((phone, index) => {
+      phoneOptions.insertAdjacentHTML('beforeend',
+        `<label style="display:block;margin-bottom:10px;cursor:pointer">
+          <input type="radio" name="selected-phone" value="${esc(phone)}" ${index===0 ? 'checked' : ''} />
+          <span style="margin-left:8px">${esc(phone)}</span>
+        </label>`
+      );
+    });
+  } else {
+    phoneSection.style.display = 'none';
+  }
+
+  if (APP.emailCandidates.length > 1) {
+    emailSection.style.display = 'block';
+    APP.emailCandidates.forEach((email, index) => {
+      emailOptions.insertAdjacentHTML('beforeend',
+        `<label style="display:block;margin-bottom:10px;cursor:pointer">
+          <input type="radio" name="selected-email" value="${esc(email)}" ${index===0 ? 'checked' : ''} />
+          <span style="margin-left:8px">${esc(email)}</span>
+        </label>`
+      );
+    });
+  } else {
+    emailSection.style.display = 'none';
+  }
+
+  modal.classList.add('open');
+}
+
+function closeMultiSelectModal() {
+  const modal = document.getElementById('multi-select-modal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  APP.pendingContact = null;
+}
+
+function confirmMultiSelectModal() {
+  const modal = document.getElementById('multi-select-modal');
+  if (!modal || !APP.pendingContact) return;
+
+  const selectedPhone = modal.querySelector('input[name="selected-phone"]:checked');
+  const selectedEmail = modal.querySelector('input[name="selected-email"]:checked');
+
+  if (APP.phoneCandidates.length > 1 && !selectedPhone) {
+    alert('Please select one phone number for WhatsApp.');
+    return;
+  }
+  if (APP.emailCandidates.length > 1 && !selectedEmail) {
+    alert('Please select one email address for email follow-up.');
+    return;
+  }
+
+  if (selectedPhone) {
+    APP.pendingContact.phone = selectedPhone.value;
+    document.getElementById('f-phone').value = selectedPhone.value;
+  }
+  if (selectedEmail) {
+    APP.pendingContact.email = selectedEmail.value;
+    document.getElementById('f-email').value = selectedEmail.value;
+  }
+
+  const contact = APP.pendingContact;
+  closeMultiSelectModal();
+  _saveContactFinal(contact);
+}
+
+function saveSendQueue() {
+  localStorage.setItem('cs_send_queue', JSON.stringify(APP.queue));
+}
+
+function _queueFollowup(contact) {
+  const email = Boolean(contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email));
+  const phone = (contact.phone || '').trim().replace(/\D/g, '');
+  const wa    = Boolean(phone);
+
+  if (!email && !wa) {
+    _setFupResult('warn', 'Contact saved — no WhatsApp or email address to send.');
+    toast('Contact saved. No follow-up data found.', 'warn');
+    return;
+  }
+
+  const existing = APP.queue.find(item => item.id === contact.id);
+  if (existing) {
+    existing.contact = contact;
+    existing.email   = existing.email || email;
+    existing.wa      = existing.wa || wa;
+  } else {
+    APP.queue.push({
+      id: contact.id,
+      contact,
+      email,
+      wa,
+      firebase: true,
+      queuedAt: new Date().toISOString(),
+    });
+  }
+
+  saveSendQueue();
+
+  if (navigator.onLine) {
+    toast('Contact saved — sending follow-up now…', 'info');
+    flushSendQueue();
+  } else {
+    _setFupResult('warn', 'Offline — follow-up queued and will send automatically when online.');
+    toast('Offline mode: WhatsApp/email queued for later send.', 'info');
+  }
+}
+
+async function _sendAutoWA(contact, opts = {}) {
+  const phone = (contact.phone || '').trim().replace(/\D/g, '');
+  if (!phone) {
+    console.log('[AutoWA] No phone number — skipping WhatsApp.');
+    return { success: false, retryable: false, reason: 'No phone number' };
+  }
+
+  const name = (contact.name || '').trim();
+  const company = (contact.company || '').trim();
+
+  if (!navigator.onLine) {
+    console.log('[AutoWA] Offline — will retry later.');
+    return { success: false, retryable: true, reason: 'Offline' };
+  }
+
+  try {
+    console.log('[AutoWA] Sending WhatsApp to', phone);
+    const res = await fetch(WA_BACKEND_URL + '/api/send-whatsapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: phone, name, company }),
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      throw new Error(data.error || 'Backend returned success: false');
+    }
+
+    console.log('[AutoWA] ✅ Sent — messageId:', data.messageId);
+    APP.waCount++;
+    localStorage.setItem('cs_wa_count', APP.waCount);
+    document.getElementById('s-wa').textContent = APP.waCount;
+    _setFupResult('ok', 'WhatsApp sent ✓');
+    toast('Contact saved and WhatsApp sent!', 'ok');
+    return { success: true };
+  } catch (err) {
+    console.error('[AutoWA] ❌ Failed:', err);
+    const msg = err.message || String(err);
+    const retryable = !navigator.onLine || /network|failed|timeout|502|503|504/i.test(msg);
+    if (!opts.queued) {
+      _setFupResult(retryable ? 'warn' : 'err', `WhatsApp ${retryable ? 'queued' : 'failed'}: ${msg}`);
+      toast(`WhatsApp ${retryable ? 'queued' : 'failed'} — ${msg.slice(0, 50)}`, retryable ? 'warn' : 'err');
+    }
+    return { success: false, retryable, reason: msg };
+  }
+}
+/*
+ * _sendAutoEmail(contact)
+ * ─────────────────────────────────────────────────────────────
+ * Sends a thank-you email via EmailJS after every Save Contact.
+ *
+ * BEHAVIOUR:
+ *   • Runs async in background — user stays on the same page
+ *   • Never opens Gmail, Outlook, or any mail client
+ *   • On success  → toast "Contact saved and email sent successfully"
+ *   • On no email → toast "Contact saved" (no email address on card)
+ *   • On EJS not configured → soft warning toast, contact already saved
+ *   • On API error → warning toast with HTTP reason, contact already saved
+ *   • All failures logged to F12 console with exact error codes
+ */
+async function _sendAutoEmail(contact, opts = {}) {
+  const email   = (contact.email   || '').trim();
+  const name    = (contact.name    || '').trim();
+  const company = (contact.company || '').trim();
+
+  if (!navigator.onLine) {
+    console.log('[AutoEmail] Offline — will retry later.');
+    return { success: false, retryable: true, reason: 'Offline' };
+  }
+
+  if (!opts.queued) {
+    toast('Contact saved — sending email…', 'info');
+  }
+  console.log('[AutoEmail] _sendAutoEmail() — email:', email || '(none)');
+
+  // ── Guard: no email address on this card ────────────────
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    console.log('[AutoEmail] No valid email address — skipping send');
+    if (!opts.queued) {
+      toast('Contact saved!', 'ok');
+      _setFupResult('ok', 'Contact saved. No email address to send to.');
+    }
+    return { success: false, retryable: false, reason: 'No email address' };
+  }
+
+  // ── Guard: EmailJS not configured ───────────────────────
+  const creds = ejsRead();
+  console.log('[AutoEmail] Credentials — service:', creds.serviceId || '(empty)',
+    '| template:', creds.templateId || '(empty)',
+    '| key:', creds.pubKey ? creds.pubKey.slice(0, 6) + '...' : '(empty)');
+
+  if (!creds.serviceId || !creds.templateId || !creds.pubKey) {
+    console.warn('[AutoEmail] EmailJS not configured — go to Settings to set up');
+    if (!opts.queued) {
+      toast('Contact saved! Set up EmailJS in Settings to auto-email.', 'warn');
+      _setFupResult('warn', 'Contact saved. Configure EmailJS in Settings to enable auto-email.');
+    }
+    return { success: false, retryable: false, reason: 'EmailJS not configured' };
+  }
+
+  // ── Build template params ────────────────────────────────
+  // Matches the shared Lovable template exactly.
+  // reply_to = contact's email so replies go back to them.
+  const firstName = name ? name.split(' ')[0] : 'there';
+  const params = {
+    name:     name    || 'Valued Contact',   // {{name}}
+    email:    email,                          // {{email}}
+    reply_to: email,                          // {{reply_to}} ← required by shared template
+    message:  'Hello ' + firstName + ', thank you for sharing your business card. We will contact you soon.',
+    to_email: email,                          // {{to_email}}
+    to_name:  name    || 'Valued Contact',   // {{to_name}}
+    subject:  'Thank You For Connecting',    // {{subject}}
+  };
+  if (company) params.company = company;     // {{company}} only if present
+
+  console.log('[AutoEmail] templateParams:', JSON.stringify(params, null, 2));
+
+  try {
+    // Load SDK + call emailjs.init() with the latest public key
+    await _ejsLoadSDK(creds.pubKey);
+    console.log('[AutoEmail] Calling emailjs.send(', creds.serviceId, ',', creds.templateId, ')…');
+    const result = await emailjs.send(creds.serviceId, creds.templateId, params);
+
+    console.log('[AutoEmail] ✅ SUCCESS — status:', result.status, '| text:', result.text);
+    const cnt = Number(localStorage.getItem('cs_email_count') || 0) + 1;
+    localStorage.setItem('cs_email_count', cnt);
+
+    // The single expected success message
+    toast('Contact saved and email sent successfully', 'ok');
+    _setFupResult('ok', 'Contact saved and email sent to ' + email + ' ✓');
+    return { success: true };
+
+  } catch (err) {
+    const status  = err && err.status;
+    const errText = (err && (err.text || err.message)) || String(err);
+
+    console.error('[AutoEmail] ❌ FAILED');
+    console.error('[AutoEmail] Full error object:', err);
+    console.error('[AutoEmail] status:', status, '| text:', errText);
+
+    // Decode every EmailJS HTTP status code
+    let reason;
+    if      (status === 400) reason = 'HTTP 400 — wrong Template ID or variable names in template';
+    else if (status === 401) reason = 'HTTP 401 — Public Key invalid (re-copy from emailjs.com → Account → General)';
+    else if (status === 403) reason = 'HTTP 403 — access denied, check account is active';
+    else if (status === 404) reason = 'HTTP 404 — Service ID or Template ID not found';
+    else if (status === 412) reason = 'HTTP 412 — emailjs.init() not called before send';
+    else if (status === 422) reason = 'HTTP 422 — template variable mismatch (ensure {{reply_to}} is in your template)';
+    else if (status === 429) reason = 'HTTP 429 — rate limit hit (free tier: 200 emails/month)';
+    else                     reason = errText || 'Unknown error — check F12 console';
+
+    console.error('[AutoEmail] Decoded reason:', reason);
+
+    // Contact is already saved — show soft warning, not a hard error
+    const retryable = !navigator.onLine || /network|timeout|502|503|504/i.test(reason);
+    toast(`Contact saved ${retryable ? '— email queued' : '— email failed'}. Check F12 console.`, retryable ? 'warn' : 'err');
+    _setFupResult(retryable ? 'warn' : 'err', `Contact saved. Email ${retryable ? 'queued' : 'failed'}: ${reason}`);
+    return { success: false, retryable, reason };
+  }
+}
+
+async function flushSendQueue() {
+  if (!navigator.onLine || !APP.queue.length) return;
+
+  console.log('[Queue] Flushing send queue — items:', APP.queue.length);
+  for (let i = APP.queue.length - 1; i >= 0; i--) {
+    const item = APP.queue[i];
+    const contact = item.contact;
+    let keep = false;
+
+    if (item.email) {
+      const result = await _sendAutoEmail(contact, { queued: true });
+      if (!result.success && result.retryable) {
+        keep = true;
+      } else {
+        item.email = false;
+      }
+    }
+
+    if (item.wa) {
+      const result = await _sendAutoWA(contact, { queued: true });
+      if (!result.success && result.retryable) {
+        keep = true;
+      } else {
+        item.wa = false;
+      }
+    }
+
+    // Firebase save
+    if (item.firebase) {
+      try {
+        const { collection, addDoc } =
+          await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js");
+
+        await addDoc(collection(window.db, "leads"), {
+          name: contact.name || "",
+          company: contact.company || "",
+          phone: contact.phone || "",
+          email: contact.email || "",
+          website: contact.website || "",
+          createdAt: new Date()
+        });
+
+        console.log("🔥 Firebase synced:", contact.name);
+        item.firebase = false;
+
+      } catch (err) {
+        console.error("❌ Firebase sync failed:", err);
+        keep = true;
+      }
+    }
+
+    if (!item.email && !item.wa && !item.firebase) {
+      APP.queue.splice(i, 1);
+      console.log('[Queue] Item complete, removed:', item.id);
+    } else if (!keep) {
+      // If tasks are done or not retryable, remove any completed part and keep if something still pending.
+      if (!item.email && !item.wa && !item.firebase) APP.queue.splice(i, 1);
+    }
+  }
+
+  saveSendQueue();
+}
+
+window.addEventListener('online', () => {
+  toast('Connection restored — sending queued WhatsApp and email.', 'info');
+  flushSendQueue();
+});
+
+window.addEventListener('load', () => {
+  if (navigator.onLine) {
+    flushSendQueue();
+  }
+  warmupOCRWorker();
+});
+
+/* Set the fup-result status strip (ok / err / warn) */
+function _setFupResult(type, msg) {
+  const el = document.getElementById('fup-result');
+  if (!el) return;
+  const icons = {
+    ok:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    err:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  };
+  el.className = 'fup-result on ' + type;
+  el.innerHTML = (icons[type] || '') + _esc(msg);
+}
+
+function _esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function deleteContact(id) {
+  APP.contacts = APP.contacts.filter(c => c.id !== id);
+  localStorage.setItem('cs_contacts', JSON.stringify(APP.contacts));
+  updateStats();
+  renderContacts();
+  toast('Deleted', 'info');
+}
+
+function clearAllContacts() {
+  if (!confirm('Delete all saved contacts?')) return;
+  APP.contacts = [];
+  localStorage.removeItem('cs_contacts');
+  updateStats();
+  renderContacts();
+  toast('All contacts cleared', 'warn');
+}
+
+function renderContacts() {
+  const q    = (document.getElementById('search-inp')?.value || '').toLowerCase();
+  const list = APP.contacts.filter(c =>
+    !q ||
+    (c.name    ||'').toLowerCase().includes(q) ||
+    (c.company ||'').toLowerCase().includes(q) ||
+    (c.email   ||'').toLowerCase().includes(q)
+  );
+
+  document.getElementById('contacts-sub').textContent =
+    `${list.length} of ${APP.contacts.length} contact${APP.contacts.length!==1?'s':''}`;
+
+  const grid = document.getElementById('contacts-grid');
+
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <line x1="23" y1="11" x2="17" y2="11"/>
+      </svg>
+      <p>${q ? 'No contacts match your search' : 'No contacts yet — scan your first card!'}</p>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map(c => {
+    const ini   = (c.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const phone = c.phone?.replace(/\D/g,'');
+    const ago   = fmtTime(c.savedAt);
+    return `<div class="c-card">
+      <div class="c-time">${ago}</div>
+      <div class="c-header">
+        <div class="avatar">${esc(ini)}</div>
+        <div style="min-width:0">
+          <div class="c-name">${esc(c.name||'Unknown')}</div>
+          <div class="c-company">${esc(c.company||'—')}</div>
+        </div>
+      </div>
+      <div class="c-fields">
+        ${c.phone   ? `<div class="c-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.55 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${esc(c.phone)}</div>` : ''}
+        ${c.email   ? `<div class="c-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>` : ''}
+        ${c.website ? `<div class="c-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><a href="${esc(c.website.startsWith('http')?c.website:'https://'+c.website)}" target="_blank">${esc(c.website)}</a></div>` : ''}
+        ${!c.phone&&!c.email&&!c.website ? `<div class="c-field" style="color:var(--text4);font-style:italic">No contact details</div>` : ''}
+      </div>
+      <div class="c-actions">
+        ${phone
+          ? `<button class="wa-btn" onclick="openWA('${c.id}')">
+               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+               WhatsApp
+             </button>`
+          : `<div style="flex:1;font-size:11.5px;color:var(--text4);display:flex;align-items:center">No phone number</div>`
+        }
+        ${c.email ? `<a href="mailto:${esc(c.email)}" class="btn btn-ghost btn-sm btn-icon" title="Email" style="text-decoration:none;color:var(--text2)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </a>` : ''}
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteContact('${c.id}')" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── 12. WHATSAPP ──────────────────────────────────────────────
+ *
+ * BACKEND URL — change this to your deployed server address.
+ * When running locally: http://localhost:3000
+ * When deployed (e.g. Railway, Render): https://your-app.railway.app
+ *
+ * HOW IT WORKS:
+ *   sendFollowupWA()  — called from the follow-up panel after OCR scan
+ *   openWA(id)        — called from the Contacts page card
+ *   Both show the WA modal; on confirm they POST to the backend.
+ *   The backend holds the token — it never touches the browser.
+ * ─────────────────────────────────────────────────────────────── */
+const WA_BACKEND_URL = 'https://business-card-scanner-1-uptj.onrender.com'; // ← change for production
+
+/* Called from the follow-up panel (uses current extracted fields) */
+function sendFollowupWA() {
+  const phone   = (document.getElementById('f-phone')   || {value:''}).value.trim();
+  const name    = (document.getElementById('f-name')    || {value:''}).value.trim();
+  const company = (document.getElementById('f-company') || {value:''}).value.trim();
+  if (!phone) { _setFupResult('err', 'No phone number extracted'); return; }
+  APP.waContact = { phone, name, company };
+  APP.waTmpl = 0;
+  _openWAModal();
+}
+
+/* Called from the Contacts page card */
+function openWA(id) {
+  APP.waContact = APP.contacts.find(c => c.id === id);
+  if (!APP.waContact) return;
+  APP.waTmpl = 0;
+  _openWAModal();
+}
+
+function _openWAModal() {
+  const c = APP.waContact;
+  document.getElementById('wa-sub').textContent =
+    'To: ' + (c.name || 'Unknown') + ' · ' + (c.phone || 'no phone');
+  document.getElementById('wa-custom').value = '';
+  renderWATmpls();
+  document.getElementById('wa-modal').classList.add('open');
+}
+
+function renderWATmpls() {
+  const c = APP.waContact;
+  document.getElementById('wa-tmpls').innerHTML = WA_TEMPLATES.map((t,i) => `
+    <div class="tmpl ${i===APP.waTmpl?'sel':''}" onclick="APP.waTmpl=${i};renderWATmpls()">
+      <div class="tmpl-lbl">${t.label}</div>
+      <div class="tmpl-txt">${esc(fillTmpl(t.text, c))}</div>
+    </div>
+  `).join('');
+}
+
+function fillTmpl(t, c) {
+  return t
+    .replace(/\{name\}/g,    (c && c.name ? c.name.split(' ')[0] : 'there'))
+    .replace(/\{company\}/g,  (c && c.company) ? c.company : 'your company');
+}
+
+function closeWA() { document.getElementById('wa-modal').classList.remove('open'); }
+
+/* confirmWA — POST to Node.js backend (token never in browser) */
+async function confirmWA() {
+  const c         = APP.waContact;
+  const customMsg = (document.getElementById('wa-custom') || {value:''}).value.trim();
+  const message   = customMsg || fillTmpl(WA_TEMPLATES[APP.waTmpl].text, c);
+
+  /* Lock the Send button immediately to prevent double-click */
+  const btn     = document.getElementById('btn-wa-send');
+  const origTxt = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg> Sending…';
+  }
+
+  console.log('[WA] confirmWA() — posting to backend:', WA_BACKEND_URL + '/api/send-whatsapp');
+  console.log('[WA] to:', c.phone, '| name:', c.name, '| company:', c.company);
+
+  try {
+    const res  = await fetch(WA_BACKEND_URL + '/api/send-whatsapp', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ to: c.phone, name: c.name, company: c.company }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      console.log('[WA] ✅ Sent — messageId:', data.messageId);
+      APP.waCount++;
+      localStorage.setItem('cs_wa_count', APP.waCount);
+      document.getElementById('s-wa').textContent = APP.waCount;
+      closeWA();
+      _setFupResult('ok', 'WhatsApp message sent ✓');
+      toast('WhatsApp sent!', 'ok');
+    } else {
+      throw new Error(data.error || 'Backend returned success: false');
+    }
+  } catch(err) {
+    console.error('[WA] ❌ Failed:', err);
+    closeWA();
+    const msg = err.message || String(err);
+    _setFupResult('err', 'WhatsApp failed: ' + msg);
+    toast('WhatsApp failed — ' + msg.slice(0, 50), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = origTxt; }
+  }
+}
+
+document.getElementById('wa-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('wa-modal')) closeWA();
+});
+document.getElementById('multi-select-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('multi-select-modal')) closeMultiSelectModal();
+});
+
+/* ── 13. UI HELPERS ───────────────────────────────────────── */
+function setTab(t) {
+  document.getElementById('pane-upload').style.display = t==='upload'?'':'none';
+  document.getElementById('pane-cam').style.display    = t==='camera'?'':'none';
+  document.getElementById('tab-up').className  = 'tab'+(t==='upload'?' on':'');
+  document.getElementById('tab-cam').className = 'tab'+(t==='camera'?' on':'');
+  if (t!=='camera') stopCam();
+}
+
+function showOverlay(on) {
+  document.getElementById('scan-overlay').className = 'scan-overlay'+(on?' on':'');
+}
+function setOT(t) { document.getElementById('overlay-txt').textContent = t; }
+function showProg(on) {
+  document.getElementById('prog').className = 'prog'+(on?' on':'');
+  if (!on) setProg(0);
+}
+function setProg(v) { document.getElementById('prog-fill').style.width = v+'%'; }
+
+function showErr(title, detail, showRetry) {
+  document.getElementById('err-title').textContent  = title;
+  document.getElementById('err-detail').textContent = detail;
+  document.getElementById('err-banner').classList.add('show');
+  document.getElementById('btn-retry-banner').style.display = showRetry?'inline-flex':'none';
+}
+function hideErr() { document.getElementById('err-banner').classList.remove('show'); }
+
+function showBanner(id, type, title, detail) {
+  const b = document.getElementById(id);
+  const iconMap = {
+    ok:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    err:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+  };
+  b.className = `banner show fade-in b-${type}`;
+  b.innerHTML = `${iconMap[type]||''}
+    <div class="banner-body">
+      <div class="banner-title">${esc(title)}</div>
+      ${detail ? `<div class="banner-detail">${esc(detail)}</div>` : ''}
+    </div>`;
+}
+
+function showOcrBanner(type, title, detail) { showBanner('ocr-banner', type, title, detail); }
+function clearOcrBanner() { document.getElementById('ocr-banner').className = 'banner'; }
+
+function fillFields(d) {
+  document.getElementById('f-name').value    = d.name    || '';
+  document.getElementById('f-company').value = d.company || '';
+  document.getElementById('f-phone').value   = d.phone   || '';
+  document.getElementById('f-email').value   = d.email   || '';
+  document.getElementById('f-website').value = d.website || '';
+}
+function clearFields() {
+  ['f-name','f-company','f-phone','f-email','f-website']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  APP.phoneCandidates = [];
+  APP.emailCandidates = [];
+  APP.pendingContact = null;
+  document.getElementById('btn-save').style.display = 'none';
+  clearOcrBanner();
+}
+
+function toggleRaw() {
+  const b = document.getElementById('raw-box');
+  b.style.display = b.style.display==='none'?'block':'none';
+}
+
+function updateStats() {
+  document.getElementById('s-total').textContent   = APP.contacts.length;
+  document.getElementById('s-wa').textContent      = APP.waCount;
+  const pill = document.getElementById('contacts-pill');
+  if (APP.contacts.length > 0) {
+    pill.textContent    = APP.contacts.length;
+    pill.style.display  = 'inline';
+  } else {
+    pill.style.display  = 'none';
+  }
+}
+
+/* Pipeline display */
+function resetPipeline() {
+  document.getElementById('pipeline').innerHTML =
+    PIPELINE_LABELS.map((l,i) => `
+      <div class="p-step p-pend" id="ps-${i}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0">
+          <circle cx="12" cy="12" r="9" stroke-dasharray="4 2"/>
+        </svg>
+        <span>${esc(l)}</span>
+      </div>
+    `).join('');
+}
+
+const SVG_ICONS = {
+  ok:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>`,
+  active: `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>`,
+  err:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+  pend:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><circle cx="12" cy="12" r="9" stroke-dasharray="4 2"/></svg>`,
+};
+
+function setStep(idx, state, note) {
+  const el = document.getElementById('ps-' + idx);
+  if (!el) return;
+  const cls = { ok:'p-ok', active:'p-active', err:'p-err', pend:'p-pend' }[state] || 'p-pend';
+  el.className = `p-step ${cls}`;
+  const label = PIPELINE_LABELS[idx] || '';
+  el.innerHTML = `${SVG_ICONS[state]||SVG_ICONS.pend}
+    <span>${esc(label)}${note ? ` <em>— ${esc(note)}</em>` : ''}</span>`;
+}
+
+function markActiveFailed() {
+  document.querySelectorAll('#pipeline .p-step.p-active').forEach(el => {
+    el.className = 'p-step p-err';
+    const svg = el.querySelector('svg');
+    if (svg) { el.innerHTML = SVG_ICONS.err + el.innerHTML.replace(/<svg[^>]*>.*?<\/svg>/s, ''); }
+  });
+}
+
+/* Toasts */
+function toast(msg, type='info') {
+  const icons = {
+    ok:   SVG_ICONS.ok,
+    err:  SVG_ICONS.err,
+    info: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+    warn: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>`,
+  };
+  const el = document.createElement('div');
+  el.className = `toast t-${type==='ok'?'ok':type==='err'?'err':type==='warn'?'warn':'info'}`;
+  el.innerHTML = (icons[type]||icons.info) + esc(msg);
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+/* Utilities */
+function tick(ms) { return new Promise(r => setTimeout(r, ms)); }
+function fmtTime(iso) {
+  if (!iso) return '';
+  const d = (Date.now() - new Date(iso)) / 1000;
+  if (d < 60)    return 'just now';
+  if (d < 3600)  return Math.floor(d/60)+'m ago';
+  if (d < 86400) return Math.floor(d/3600)+'h ago';
+  return Math.floor(d/86400)+'d ago';
+}
+function esc(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   EMAILJS + WHATSAPP FOLLOW-UP LOGIC
+   ══════════════════════════════════════════════════════════════
+
+   HOW EmailJS WORKS (browser-only, no server):
+   ─────────────────────────────────────────────
+   1. Sign up free at emailjs.com
+   2. Create an Email Service (Gmail, Outlook, etc.)
+   3. Create an Email Template with these variables:
+        {{to_email}}  — recipient email from OCR
+        {{to_name}}   — recipient name from OCR
+        {{company}}   — company name from OCR
+        {{reply_to}}  — reply-to address (your email)
+        {{subject}}   — "Thank You For Connecting"
+        {{message}}   — body text
+   4. Copy Service ID, Template ID, Public Key → paste in Settings
+   5. EmailJS SDK is loaded on demand (only when sending)
+
+   HOW WhatsApp CLICK-TO-CHAT WORKS:
+   ──────────────────────────────────
+   Opens:  https://wa.me/{phone}?text={encoded_message}
+   Phone:  digits only, with country code (e.g. 919876543210)
+   Message: pre-filled, user can edit before sending in WA
+   ══════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════
+   EMAILJS — SINGLE CLEAN IMPLEMENTATION
+   ═══════════════════════════════════════════════════════════
+
+   STORAGE KEYS (localStorage):
+     cs_ejs_service   — Service ID   (service_xxxxxxx)
+     cs_ejs_template  — Template ID  (template_xxxxxxx)
+     cs_ejs_pubkey    — Public Key   (from Account → General)
+     cs_email_count   — sent counter
+
+   TEMPLATE VARIABLES your EmailJS template MUST use:
+     {{to_email}}   recipient email
+     {{to_name}}    recipient name
+     {{company}}    company (may be blank — guard with if in template)
+     {{subject}}    "Thank You For Connecting"
+     {{message}}    body text
+     DO NOT add {{reply_to}} — empty string causes HTTP 422
+
+   SETUP:
+     1. emailjs.com → Add Email Service → Gmail → Connect
+     2. Email Templates → New Template → use vars above → Save
+     3. Account → General → Public Key → copy
+     4. Paste all three into Settings → EmailJS → Save credentials
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Single source of truth: always read localStorage directly ── */
+function ejsRead() {
+  return {
+    serviceId:  (localStorage.getItem('cs_ejs_service')  || '').trim(),
+    templateId: (localStorage.getItem('cs_ejs_template') || '').trim(),
+    pubKey:     (localStorage.getItem('cs_ejs_pubkey')   || '').trim(),
+  };
+}
+
+function ejsOk() {
+  const c = ejsRead();
+  return !!(c.serviceId && c.templateId && c.pubKey);
+}
+
+/* ── Save credentials → localStorage (single write, no EJS object needed) ── */
+function saveEmailJS() {
+  const s = (document.getElementById('ejs-service')  || {value:''}).value.trim();
+  const t = (document.getElementById('ejs-template') || {value:''}).value.trim();
+  const p = (document.getElementById('ejs-pubkey')   || {value:''}).value.trim();
+
+  console.log('[EJS] saveEmailJS() inputs — service:', s || '(empty)',
+              '| template:', t || '(empty)', '| key:', p ? p.slice(0,6)+'...' : '(empty)');
+
+  const missing = [];
+  if (!s) missing.push('Service ID');
+  if (!t) missing.push('Template ID');
+  if (!p) missing.push('Public Key');
+  if (missing.length) {
+    showBanner('ejs-banner','warn','Missing: '+missing.join(', '),
+      'All three are required. Find them on your emailjs.com dashboard.');
+    return;
+  }
+
+  localStorage.setItem('cs_ejs_service',  s);
+  localStorage.setItem('cs_ejs_template', t);
+  localStorage.setItem('cs_ejs_pubkey',   p);
+
+  console.log('[EJS] Saved to localStorage:', ejsRead());
+
+  // Enable Send Email button if modal is open
+  const btn = document.getElementById('btn-send-email');
+  if (btn) btn.disabled = false;
+  const warn = document.getElementById('ejs-not-configured');
+  if (warn) warn.style.display = 'none';
+
+  showBanner('ejs-banner','ok',
+    'Saved ✓  service: '+s+' · template: '+t,
+    'Key: '+p.slice(0,6)+'… — go to Scan and click Email to send.');
+  toast('EmailJS credentials saved!','ok');
+}
+
+/* ── Populate Settings inputs from localStorage ────────────── */
+function loadEmailJSForm() {
+  const c = ejsRead();
+  const s = document.getElementById('ejs-service');
+  const t = document.getElementById('ejs-template');
+  const p = document.getElementById('ejs-pubkey');
+  if (s) s.value = c.serviceId;
+  if (t) t.value = c.templateId;
+  if (p) p.value = c.pubKey;
+  console.log('[EJS] loadEmailJSForm() — service:', c.serviceId || '(empty)',
+    '| template:', c.templateId || '(empty)',
+    '| key:', c.pubKey ? c.pubKey.slice(0,6)+'...' : '(empty)');
+}
+
+/* ── Test: load SDK and call init() only (no email sent) ──────── */
+async function testEmailJSConfig() {
+  const c = ejsRead();
+  if (!c.serviceId || !c.templateId || !c.pubKey) {
+    showBanner('ejs-banner','warn','Fill and Save all three fields first','');
+    return;
+  }
+  showBanner('ejs-banner','info','Testing emailjs.init()…','Loading SDK from CDN');
+  try {
+    await _ejsLoadSDK(c.pubKey);8
+    showBanner('ejs-banner','ok',
+      'SDK init() succeeded ✓',
+      'Key prefix: '+c.pubKey.slice(0,6)+'… — ready to send from Scan page.');
+    toast('EmailJS init OK!','ok');
+  } catch(e) {
+    console.error('[EJS] testEmailJSConfig failed:', e);
+    showBanner('ejs-banner','err','Init failed: '+(e.message||String(e)),
+      'Re-check your Public Key on emailjs.com → Account → General');
+  }
+}
+
+/* ── Internal: load SDK + init, returns Promise ──────────────── */
+function _ejsLoadSDK(pubKey) {
+  return new Promise((resolve, reject) => {
+    const doInit = () => {
+      try {
+        emailjs.init(pubKey);
+        console.log('[EJS] emailjs.init() called with key prefix:', pubKey.slice(0,6)+'...');
+        resolve();
+      } catch(e) {
+        console.error('[EJS] emailjs.init() threw:', e);
+        reject(e);
+      }
+    };
+    if (window.emailjs) {
+      // SDK already present — just re-init with the latest key
+      doInit();
+      return;
+    }
+    console.log('[EJS] Loading SDK from CDN...');
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+    script.onload = () => setTimeout(doInit, 0); // defer so script body runs first
+    script.onerror = () => reject(new Error('Failed to load EmailJS SDK from CDN'));
+    document.head.appendChild(script);
+  });
+}
+
+/* ── Email modal functions: removed — email is auto-sent on Save ── */
+/* Stubs prevent ReferenceError if any old onclick reference remains. */
+function openEmailModal()  {}
+function closeEmailModal() {}
+async function sendEmailJS() {}
+
+/* ── Follow-up result banner ─────────────────────────────── */
+const setFupResult = _setFupResult;
+
+/* clearFields also hides the follow-up panel */
+const _origClearFieldsEJS = clearFields;
+clearFields = function() {
+  _origClearFieldsEJS();
+  const fup = document.getElementById('followup-panel');
+  if (fup) fup.classList.remove('show');
+};
+
+/* ── Patch loadSettingsForm to also populate EmailJS inputs ── */
+// Assignment (not `function` keyword) prevents hoisting from making
+// _orig capture this wrapper instead of the original — which would
+// cause infinite recursion every time Settings is opened.
+const _origLoadSettingsForm = loadSettingsForm;
+loadSettingsForm = function() {
+  _origLoadSettingsForm(); // call the real original
+  loadEmailJSForm();       // then populate EJS inputs from ejsGet()
+};
+
+
+/* ══════════════════════════════════════════════════════════════
+   PANEL STATE MACHINE  (idle → scanning → done)
+   Drives the right-hand panel through three visual states:
+     idle     : instructional placeholder before any upload
+     scanning : skeleton shimmer while Tesseract runs
+     done     : fields pop in with green dots after success
+   ══════════════════════════════════════════════════════════════ */
+
+// ── State helpers ──────────────────────────────────────────────
+let _panelState = 'idle';
+
+function setPanelState(state) {
+  _panelState = state;
+
+  // Toggle the three state containers
+  const idle = document.getElementById('state-idle');
+  const scan = document.getElementById('state-scanning');
+  const done = document.getElementById('state-done');
+  if (idle) idle.style.display    = state === 'idle'     ? 'flex' : 'none';
+  if (scan) scan.classList.toggle('show', state === 'scanning');
+  if (done) done.classList.toggle('show', state === 'done');
+
+  // Reset button only visible in done state
+  const resetBtn = document.getElementById('btn-clear-fields');
+  if (resetBtn) resetBtn.style.display = state === 'done' ? 'inline-flex' : 'none';
+
+  // Hide ocr-banner and raw-toggle on state change
+  const ocrB = document.getElementById('ocr-banner');
+  if (ocrB) ocrB.style.display = 'none';
+  const rawT = document.getElementById('raw-toggle');
+  if (rawT && state !== 'done') rawT.style.display = 'none';
+}
+
+// Update the skeleton badge text while scanning
+function _updateScanBadge(txt) {
+  const el = document.getElementById('scan-status-txt');
+  if (el) el.textContent = txt || 'Scanning…';
+}
+
+// ── Animate done-state fields with green indicator dots ────────
+function _animateDoneFields(d) {
+  const map = [
+    { inp: 'f-name',    dot: 'dot-name',    wrap: 'fd-name-wrap',    val: d.name    },
+    { inp: 'f-company', dot: 'dot-company', wrap: 'fd-company-wrap', val: d.company },
+    { inp: 'f-phone',   dot: 'dot-phone',   wrap: 'fd-phone-wrap',   val: d.phone   },
+    { inp: 'f-email',   dot: 'dot-email',   wrap: 'fd-email-wrap',   val: d.email   },
+    { inp: 'f-website', dot: 'dot-website', wrap: 'fd-website-wrap', val: d.website },
+  ];
+  map.forEach(({ inp, dot, wrap, val }) => {
+    const inpEl  = document.getElementById(inp);
+    const dotEl  = document.getElementById(dot);
+    const wrapEl = document.getElementById(wrap);
+    if (inpEl) inpEl.value = val || '';
+    if (!wrapEl) return;
+    if (val) {
+      wrapEl.classList.remove('empty');
+      wrapEl.classList.add('filled');
+      if (dotEl) dotEl.style.display = 'inline-block';
+      setTimeout(() => wrapEl.classList.remove('filled'), 700);
+    } else {
+      wrapEl.classList.remove('filled');
+      wrapEl.classList.add('empty');
+      if (dotEl) dotEl.style.display = 'none';
+    }
+  });
+}
+
+// ── Update the success/warning banner in done state ─────────────
+function _setSuccessBanner(found) {
+  const titleEl = document.getElementById('success-banner-title');
+  const subEl   = document.getElementById('success-banner-sub');
+  const banner  = document.querySelector('.success-banner');
+  if (!banner) return;
+  if (found === 0) {
+    banner.className = 'suc-banner warn';
+    if (titleEl) { titleEl.style.color = 'var(--amber-text)'; titleEl.textContent = 'No fields detected'; }
+    if (subEl)   { subEl.style.color   = '#fcd34d';           subEl.textContent   = 'Fill in manually and save.'; }
+  } else {
+    banner.className = 'suc-banner ok';
+    if (titleEl) { titleEl.style.color = 'var(--green-text)'; titleEl.textContent = found === 5 ? 'All 5 fields extracted!' : `${found} of 5 fields extracted`; }
+    if (subEl)   { subEl.style.color   = '#86efac';           subEl.textContent   = found === 5 ? 'Review if needed, then save.' : 'Fill in missing fields, then save.'; }
+  }
+}
+
+// ── clearFieldsToIdle: reset button + "Scan another" ───────────
+function clearFieldsToIdle() {
+  clearFields();
+  // Clear animated field decorations
+  ['fd-name-wrap','fd-company-wrap','fd-phone-wrap','fd-email-wrap','fd-website-wrap'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('filled', 'empty');
+  });
+  ['dot-name','dot-company','dot-phone','dot-email','dot-website'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  // Hide preview
+  const pw = document.getElementById('preview-wrap');
+  if (pw) pw.style.display = 'none';
+  const fi = document.getElementById('file-inp');
+  if (fi) fi.value = '';
+  if (APP.prevUrl) { URL.revokeObjectURL(APP.prevUrl); APP.prevUrl = null; }
+  resetPipeline();
+  hideErr();
+  setPanelState('idle');
+  // Hide follow-up panel if present
+  const fup = document.getElementById('followup-panel');
+  if (fup) fup.classList.remove('show');
+}
+
+// ── Wire panel transitions into startScan and runCycle ──────────
+//
+// HOW AUTO-SCAN WORKS:
+//   1. User picks a file → onchange="onFilePick(event)" fires
+//   2. onFilePick calls startScan(file) IMMEDIATELY
+//   3. startScan shows preview + switches panel to 'scanning' (skeleton)
+//   4. runCycle compresses, calls Tesseract, parses, fills fields
+//   5. On success → panel switches to 'done' (fields animate in)
+//   6. On failure → panel returns to 'idle' + error banner shown
+//
+// We monkey-patch startScan and showOcrBanner so the panel state
+// machine hooks into the existing flow with zero code duplication.
+
+const __origStartScan = startScan;
+startScan = async function(file) {
+  // Switch to scanning state BEFORE the async work begins
+  // so the user sees the skeleton immediately on upload
+  setPanelState('scanning');
+  _updateScanBadge('Compressing image…');
+  await __origStartScan(file);
+};
+
+// intercept setOT so skeleton badge stays in sync with overlay text
+const __origSetOT = setOT;
+setOT = function(txt) {
+  __origSetOT(txt);
+  _updateScanBadge(txt);
+};
+
+// intercept showOcrBanner (called by runCycle on success/warn)
+// to drive the panel into 'done' state and animate the fields
+const __origShowOcrBanner = showOcrBanner;
+showOcrBanner = function(type, title, detail) {
+  if (type === 'ok' || type === 'warn') {
+    const found = type === 'ok' ? (parseInt(title) || 0) : 0;
+    setPanelState('done');
+    _setSuccessBanner(found);
+    _animateDoneFields({
+      name:    document.getElementById('f-name')    ? document.getElementById('f-name').value    : '',
+      company: document.getElementById('f-company') ? document.getElementById('f-company').value : '',
+      phone:   document.getElementById('f-phone')   ? document.getElementById('f-phone').value   : '',
+      email:   document.getElementById('f-email')   ? document.getElementById('f-email').value   : '',
+      website: document.getElementById('f-website') ? document.getElementById('f-website').value : '',
+    });
+    const rawT = document.getElementById('raw-toggle');
+    if (rawT) rawT.style.display = 'flex';
+    // Show follow-up panel if present
+    const fup = document.getElementById('followup-panel');
+    if (fup) fup.classList.add('show');
+    return;
+  }
+  __origShowOcrBanner(type, title, detail);
+};
+
+// intercept showErr so a terminal failure reverts panel to idle
+const __origShowErr = showErr;
+showErr = function(title, detail, retry) {
+  __origShowErr(title, detail, retry);
+  if (_panelState === 'scanning') setPanelState('idle');
+};
+
+// intercept clearOcrBanner to be safe with the hidden ocr-banner
+clearOcrBanner = function() {
+  const b = document.getElementById('ocr-banner');
+  if (b) { b.className = 'banner'; b.style.display = 'none'; }
+};
+
+/* ── Boot ────────────────────────────────────────────────────── */
+setPanelState('idle');
+</script>
+<script src="/node_modules/tesseract.js/dist/tesseract.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBEv1PnkBrPiwy3biRWD0-w1pKIkqdPQd4",
+    authDomain: "business-card-scanner-cae7c.firebaseapp.com",
+    projectId: "business-card-scanner-cae7c",
+    storageBucket: "business-card-scanner-cae7c.firebasestorage.app",
+    messagingSenderId: "1076949807724",
+    appId: "1:1076949807724:web:1e8ebf0b756ba23b485e49",
+    measurementId: "G-JVC18GQVPF"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window.db = db;
+
+  console.log("🔥 Firebase Connected");
+</script>
+</body>
+</html>
