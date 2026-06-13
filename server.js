@@ -196,7 +196,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/delete', (req, res) => {
-    res.sendFile(__dirname + '/public/delete.html');
+    res.sendFile(__dirname + '/public/'data-deletion.html');
 });
 
 // ── Health check ──────────────────────────────────────────────
