@@ -195,6 +195,10 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'cardscan.html'));
 });
 
+app.get('/delete', (req, res) => {
+    res.sendFile(__dirname + '/public/delete.html');
+});
+
 // ── Health check ──────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({
