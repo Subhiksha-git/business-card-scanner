@@ -17,16 +17,19 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ── Validate required env vars ───────────────────────────────
-const REQUIRED = ['WHATSAPP_TOKEN', 'PHONE_NUMBER_ID'];
+const REQUIRED = ['WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID'];
 const missing  = REQUIRED.filter(k => !process.env[k]);
 if (missing.length) {
   console.error('[startup] Missing required environment variables:', missing.join(', '));
   process.exit(1);
 }
 
-const WA_TOKEN         = process.env.WHATSAPP_TOKEN;
-const PHONE_NUMBER_ID  = process.env.PHONE_NUMBER_ID;
-const WA_API_URL       = `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`;
+const WA_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+const GRAPH_VERSION = process.env.WHATSAPP_GRAPH_API_VERSION || "v25.0";
+
+const WA_API_URL =
+`https://graph.facebook.com/${GRAPH_VERSION}/${PHONE_NUMBER_ID}/messages`;
 const ALLOWED_ORIGIN   = process.env.ALLOWED_ORIGIN || 'http://localhost:8080';
 const allowedOrigins   = ALLOWED_ORIGIN.split(',').map(u => u.trim()).filter(Boolean);
 
@@ -40,6 +43,7 @@ app.use(cors({
   methods: ['POST', 'OPTIONS'],
 }));
 
+// Serve static files from public folder
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '64kb' }));
 
@@ -86,22 +90,16 @@ app.post('/api/send-whatsapp', limiter, async (req, res) => {
   console.log(`[send-whatsapp] to: ${phone} | name: ${name || '—'} | company: ${company || '—'}`);
 
   try {
-    // Example using a template with parameters
     const payload = {
       messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       to: phone,
       type: 'template',
       template: {
-        name: '3p_direct_integration_test_template',
-        language: { code: 'en_US' },
-        components: [
-          {
-            type: 'body',
-            parameters: [
-              { type: 'text', text: messageText }
-            ]
-          }
-        ]
+        name: "cardsync_card_received",
+        language: {
+          code: "en_US"
+        }
       }
     };
 
@@ -154,6 +152,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'cardscan.html'));
 });
 
+// ── Data Deletion page ──────────────────────────────────────
+app.get('/delete', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'delete.html'));
+});
+
 // ── Health check ──────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({
@@ -162,6 +165,7 @@ app.get('/health', (req, res) => {
     tokenSet: !!WA_TOKEN,
   });
 });
+
 
 // ── 404 catch-all ─────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ success: false, error: 'Not found' }));
