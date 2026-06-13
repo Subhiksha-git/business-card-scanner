@@ -101,7 +101,7 @@ app.post('/api/send-whatsapp', limiter, async (req, res) => {
       to: phone,
       type: 'template',
       template: {
-        name: "cardsync_card_received",
+        name: "hello_world",
         language: {
           code: "en_US"
         }
