@@ -195,8 +195,8 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'cardscan.html'));
 });
 
-app.get('/delete', (req, res) => {
-    res.sendFile(__dirname + '/public/data-deletion.html');
+app.get('/remove', (req, res) => {
+    res.sendFile(__dirname + '/public/remove.html');
 });
 
 // ── Health check ──────────────────────────────────────────────
