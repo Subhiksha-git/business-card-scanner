@@ -45,6 +45,11 @@ app.use(cors({
 
 // Serve static files from public folder
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/worker-local.min.js', express.static(path.join(__dirname, 'worker-local.min.js')));
+app.use('/worker.min.js', express.static(path.join(__dirname, 'worker.min.js')));
+app.use('/tessdata', express.static(path.join(__dirname, 'tessdata')));
+app.use('/node_modules/tesseract.js/dist', express.static(path.join(__dirname, 'node_modules', 'tesseract.js', 'dist')));
+app.use('/node_modules/tesseract.js-core', express.static(path.join(__dirname, 'node_modules', 'tesseract.js-core')));
 app.use(express.json({ limit: '64kb' }));
 
 const limiter = rateLimit({
