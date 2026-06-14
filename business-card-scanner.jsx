@@ -129,7 +129,7 @@ function saveToQueue(item) {
     ...item,
     status: "pending",
     synced: false,
-    createdAt: Date.now()
+    createdAt: new Date().toISOString()
   });
 
   localStorage.setItem("queue", JSON.stringify(queue));
@@ -209,7 +209,7 @@ async function runOCR(file) {
       image: dataUrl,
       text,
       status: "offline_processed",
-      createdAt: Date.now()
+      createdAt: new Date().toISOString()
     });
 
     console.groupEnd();
