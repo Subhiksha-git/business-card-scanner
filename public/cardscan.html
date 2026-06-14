@@ -2339,8 +2339,6 @@ async function saveContact() {
   _saveContactFinal(c);
 }
 
-import CryptoJS from "crypto-js";
-
 function _saveContactFinal(c) {
   // 1a. Duplicate detection by phone or email
   if (_isDuplicateContact(c)) {
@@ -2350,41 +2348,33 @@ function _saveContactFinal(c) {
     if (!keep) return;
   }
 
-  // 2. Persist contact immediately — never waits for email or WhatsApp
   APP.contacts.unshift(c);
-
-  // 🔐 Save encrypted contacts instead of base64
-  const encryptedContacts = CryptoJS.AES.encrypt(
-    JSON.stringify(APP.contacts),
-    process.env.REACT_APP_SECRET_KEY
-  ).toString();
-  localStorage.setItem("cs_contacts", encryptedContacts);
-
-  document.getElementById("btn-save").style.display = "none";
+  localStorage.setItem('cs_contacts', JSON.stringify(APP.contacts));
+  document.getElementById('btn-save').style.display = 'none';
   updateStats();
   renderContacts();
-
   // Save to Firebase Firestore
-  import("https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js")
-    .then(async ({ collection, addDoc }) => {
-      await addDoc(collection(window.db, "leads"), {
-        name: c.name || "",
-        company: c.company || "",
-        phone: c.phone || "",
-        email: c.email || "",
-        website: c.website || "",
-        createdAt: new Date()
-      });
-
-      console.log("🔥 Saved to Firebase:");
-    })
-    .catch(err => {
-      console.error("❌ Firebase save failed:", err);
+ import("https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js")
+  .then(async ({ collection, addDoc }) => {
+    await addDoc(collection(window.db, "leads"), {
+      name: c.name || "",
+      company: c.company || "",
+      phone: c.phone || "",
+      email: c.email || "",
+      website: c.website || "",
+      createdAt: new Date()
     });
+
+    console.log("🔥 Saved to Firebase:", c);
+  })
+  .catch(err => {
+    console.error("❌ Firebase save failed:", err);
+  });
 
   // 3. Queue follow-up sends; attempt immediately if online.
   _queueFollowup(c);
 }
+
 
 function showMultiSelectModal() {
   const modal = document.getElementById('multi-select-modal');
