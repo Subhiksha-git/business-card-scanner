@@ -2381,6 +2381,7 @@ function _saveContactFinal(c) {
     JSON.stringify(APP.contacts),
     secretKey
   ).toString();
+  console.log("Encrypted contacts:", encryptedContacts);
   localStorage.setItem("cs_contacts", encryptedContacts);
 
   document.getElementById("btn-save").style.display = "none";
