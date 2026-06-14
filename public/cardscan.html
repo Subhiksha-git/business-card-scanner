@@ -2305,7 +2305,7 @@ async function saveContact() {
     phone:   document.getElementById('f-phone').value.trim(),
     email:   document.getElementById('f-email').value.trim(),
     website: document.getElementById('f-website').value.trim(),
-    savedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
   };
 
   // If OCR already populated multiple candidates, show modal.
