@@ -2439,7 +2439,7 @@ function loadContacts() {
 
 // 🕒 Helper to format date/time for display
 function formatDateTime(dt) {
-  const d = new Date(dt);
+  const d = new Date(dt); // dt is ISO string
   return d.toLocaleString('en-IN', {
     day: '2-digit',
     month: 'short',
