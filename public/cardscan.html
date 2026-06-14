@@ -2378,7 +2378,7 @@ function _saveContactFinal(c) {
   }
 
   // 2. Add timestamp + persist contact immediately
-  c.createdAt = new Date();   // <-- NEW LINE: attach date/time
+  c.createdAt = new Date().toISOString();   // <-- NEW LINE: attach date/time
   APP.contacts.unshift(c);
 
   // 🔐 Save encrypted contacts instead of plain JSON
