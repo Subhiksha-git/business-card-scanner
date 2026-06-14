@@ -2363,6 +2363,11 @@ async function saveContact() {
   _saveContactFinal(c);
 }
 
+// ─────────────────────────────────────────────
+// Save Contact Logic (saveContact.js)
+// ─────────────────────────────────────────────
+
+// Save a contact
 function _saveContactFinal(c) {
   // 1a. Duplicate detection by phone or email
   if (_isDuplicateContact(c)) {
@@ -2372,7 +2377,8 @@ function _saveContactFinal(c) {
     if (!keep) return;
   }
 
-  // 2. Persist contact immediately
+  // 2. Add timestamp + persist contact immediately
+  c.createdAt = new Date();   // <-- NEW LINE: attach date/time
   APP.contacts.unshift(c);
 
   // 🔐 Save encrypted contacts instead of plain JSON
@@ -2381,7 +2387,6 @@ function _saveContactFinal(c) {
     JSON.stringify(APP.contacts),
     secretKey
   ).toString();
-  console.log("Encrypted contacts:", encryptedContacts);
   localStorage.setItem("cs_contacts", encryptedContacts);
 
   document.getElementById("btn-save").style.display = "none";
@@ -2397,7 +2402,7 @@ function _saveContactFinal(c) {
         phone: c.phone || "",
         email: c.email || "",
         website: c.website || "",
-        createdAt: new Date()
+        createdAt: c.createdAt   // reuse same timestamp
       });
 
       console.log("🔥 Saved to Firebase:", c);
@@ -2430,6 +2435,42 @@ function loadContacts() {
     console.error("Decrypt contacts failed:", err);
     return [];
   }
+}
+
+// 🕒 Helper to format date/time for display
+function formatDateTime(dt) {
+  const d = new Date(dt);
+  return d.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+// Example renderContacts function
+function renderContacts() {
+  const contacts = loadContacts();
+  const container = document.getElementById("contacts-grid");
+  container.innerHTML = "";
+
+  contacts.forEach(c => {
+    const savedDate = c.createdAt ? formatDateTime(c.createdAt) : "Unknown";
+    container.innerHTML += `
+      <div class="contact-card">
+        <div class="name">${c.name}</div>
+        <div class="company">${c.company}</div>
+        <div class="phone">${c.phone}</div>
+        <div class="email">${c.email}</div>
+        <div class="website">${c.website}</div>
+        <div class="saved">Saved on: ${savedDate}</div>
+      </div>
+    `;
+  });
+
+  // update header count
+  document.getElementById("contacts-sub").textContent = `${contacts.length} contacts`;
 }
 
 function showMultiSelectModal() {
