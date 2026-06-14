@@ -2348,33 +2348,52 @@ function _saveContactFinal(c) {
     if (!keep) return;
   }
 
+  // 2. Persist contact immediately
   APP.contacts.unshift(c);
-  localStorage.setItem('cs_contacts', JSON.stringify(APP.contacts));
-  document.getElementById('btn-save').style.display = 'none';
+
+  // 🔐 Save encrypted contacts instead of plain JSON
+  const secretKey = "MyStrongSecretKey123"; // better: move to .env
+  const encryptedContacts = CryptoJS.AES.encrypt(
+    JSON.stringify(APP.contacts),
+    secretKey
+  ).toString();
+  localStorage.setItem("cs_contacts", encryptedContacts);
+
+  document.getElementById("btn-save").style.display = "none";
   updateStats();
   renderContacts();
-  // Save to Firebase Firestore
- import("https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js")
-  .then(async ({ collection, addDoc }) => {
-    await addDoc(collection(window.db, "leads"), {
-      name: c.name || "",
-      company: c.company || "",
-      phone: c.phone || "",
-      email: c.email || "",
-      website: c.website || "",
-      createdAt: new Date()
-    });
 
-    console.log("🔥 Saved to Firebase:", c);
-  })
-  .catch(err => {
-    console.error("❌ Firebase save failed:", err);
-  });
+  // Save to Firebase Firestore
+  import("https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js")
+    .then(async ({ collection, addDoc }) => {
+      await addDoc(collection(window.db, "leads"), {
+        name: c.name || "",
+        company: c.company || "",
+        phone: c.phone || "",
+        email: c.email || "",
+        website: c.website || "",
+        createdAt: new Date()
+      });
+
+      console.log("🔥 Saved to Firebase:", c);
+    })
+    .catch(err => {
+      console.error("❌ Firebase save failed:", err);
+    });
 
   // 3. Queue follow-up sends; attempt immediately if online.
   _queueFollowup(c);
 }
 
+// 🔓 Helper to load contacts back from localStorage
+function loadContacts() {
+  const secretKey = "MyStrongSecretKey123";
+  const encrypted = localStorage.getItem("cs_contacts");
+  if (!encrypted) return [];
+
+  const bytes = CryptoJS.AES.decrypt(encrypted, secretKey);
+  return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+}
 
 function showMultiSelectModal() {
   const modal = document.getElementById('multi-select-modal');
