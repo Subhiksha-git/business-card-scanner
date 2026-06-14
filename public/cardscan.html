@@ -2915,9 +2915,9 @@ function renderContacts() {
   grid.innerHTML = list.map(c => {
     const ini   = (c.name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
     const phone = c.phone?.replace(/\D/g,'');
-    const ago   = fmtTime(c.savedAt);
+    const savedDate = c.createdAt ? formatDateTime(c.createdAt) : "Unknown";  // ✅ changed line
     return `<div class="c-card">
-      <div class="c-time">${ago}</div>
+      <div class="c-time">${savedDate}</div>   <!-- ✅ changed line -->
       <div class="c-header">
         <div class="avatar">${esc(ini)}</div>
         <div style="min-width:0">
