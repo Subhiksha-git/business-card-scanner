@@ -2415,9 +2415,22 @@ function loadContacts() {
   const encrypted = localStorage.getItem("cs_contacts");
   if (!encrypted) return [];
 
-  const bytes = CryptoJS.AES.decrypt(encrypted, secretKey);
-  return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+  try {
+    const bytes = CryptoJS.AES.decrypt(encrypted, secretKey);
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+
+    if (!decrypted) {
+      console.warn("No valid decrypted data");
+      return [];
+    }
+
+    return JSON.parse(decrypted);
+  } catch (err) {
+    console.error("Decrypt contacts failed:", err);
+    return [];
+  }
 }
+
 function showMultiSelectModal() {
   const modal = document.getElementById('multi-select-modal');
   if (!modal) return;
