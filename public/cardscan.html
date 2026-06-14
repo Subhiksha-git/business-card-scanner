@@ -1617,9 +1617,31 @@ console.log("✅ Scancard script loaded successfully");
 */
 
 /* ── 1. CONSTANTS & STATE ─────────────────────────────────── */
+const secretKey = "MyStrongSecretKey123"; // same key used for save side
+
 const APP = {
-  contacts: JSON.parse(localStorage.getItem('cs_contacts') || '[]'),
-  queue:    JSON.parse(localStorage.getItem('cs_send_queue') || '[]'),
+  contacts: (function() {
+    const encrypted = localStorage.getItem("cs_contacts");
+    if (!encrypted) return [];
+    try {
+      const bytes = CryptoJS.AES.decrypt(encrypted, secretKey);
+      return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+    } catch (e) {
+      console.error("Decrypt contacts failed:", e);
+      return [];
+    }
+  })(),
+  queue: (function() {
+    const encrypted = localStorage.getItem("cs_send_queue");
+    if (!encrypted) return [];
+    try {
+      const bytes = CryptoJS.AES.decrypt(encrypted, secretKey);
+      return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+    } catch (e) {
+      console.error("Decrypt queue failed:", e);
+      return [];
+    }
+  })(),
   file:     null,
   prevUrl:  null,
   retries:  0,
@@ -1658,6 +1680,7 @@ const PIPELINE_LABELS = [
   'Extract fields with regex',
   'Fill form fields',
 ];
+
 
 /* ── 2. BOOT ──────────────────────────────────────────────── */
 (function boot() {
