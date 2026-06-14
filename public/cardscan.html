@@ -2498,9 +2498,14 @@ function confirmMultiSelectModal() {
 }
 
 function saveSendQueue() {
-  localStorage.setItem('cs_send_queue', JSON.stringify(APP.queue));
+  const secretKey = "MyStrongSecretKey123"; // same key you used for contacts
+  const encryptedQueue = CryptoJS.AES.encrypt(
+    JSON.stringify(APP.queue),
+    secretKey
+  ).toString();
+  localStorage.setItem("cs_send_queue", encryptedQueue);
 }
-
+  
 function _queueFollowup(contact) {
   const email = Boolean(contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email));
   const phone = (contact.phone || '').trim().replace(/\D/g, '');
@@ -2794,7 +2799,15 @@ function _esc(s) {
 
 function deleteContact(id) {
   APP.contacts = APP.contacts.filter(c => c.id !== id);
-  localStorage.setItem('cs_contacts', JSON.stringify(APP.contacts));
+
+  // 🔐 Encrypt before saving
+  const secretKey = "MyStrongSecretKey123";
+  const encryptedContacts = CryptoJS.AES.encrypt(
+    JSON.stringify(APP.contacts),
+    secretKey
+  ).toString();
+  localStorage.setItem("cs_contacts", encryptedContacts);
+
   updateStats();
   renderContacts();
   toast('Deleted', 'info');
@@ -2803,7 +2816,15 @@ function deleteContact(id) {
 function clearAllContacts() {
   if (!confirm('Delete all saved contacts?')) return;
   APP.contacts = [];
-  localStorage.removeItem('cs_contacts');
+
+  // 🔐 Instead of removeItem, save empty encrypted array
+  const secretKey = "MyStrongSecretKey123";
+  const encryptedContacts = CryptoJS.AES.encrypt(
+    JSON.stringify(APP.contacts),
+    secretKey
+  ).toString();
+  localStorage.setItem("cs_contacts", encryptedContacts);
+
   updateStats();
   renderContacts();
   toast('All contacts cleared', 'warn');
