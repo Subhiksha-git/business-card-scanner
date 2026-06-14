@@ -2417,7 +2417,6 @@ function loadContacts() {
   const bytes = CryptoJS.AES.decrypt(encrypted, secretKey);
   return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
 }
-
 function showMultiSelectModal() {
   const modal = document.getElementById('multi-select-modal');
   if (!modal) return;
