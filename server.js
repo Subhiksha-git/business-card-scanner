@@ -98,10 +98,10 @@ app.post('/api/send-whatsapp', limiter, async (req, res) => {
     const payload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
-      to: phone,
+      to: "917338799034",
       type: 'template',
       template: {
-        name: "hello_world",
+        name: "cardscan_intro",
         language: {
           code: "en_US"
         }
