@@ -28,6 +28,15 @@ const WA_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const GRAPH_VERSION = process.env.WHATSAPP_GRAPH_API_VERSION || "v25.0";
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
+const WHATSAPP_BUSINESS_ACCOUNT_ID = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+const WHATSAPP_BUSINESS_PHONE_NUMBER = process.env.WHATSAPP_BUSINESS_PHONE_NUMBER;
+const APP_ID = process.env.APP_ID;
+const APP_SECRET = process.env.APP_SECRET;
+const WHATSAPP_TEMPLATE_LANGUAGE_CODE = process.env.WHATSAPP_TEMPLATE_LANGUAGE_CODE || 'en_US';
+const WHATSAPP_CARD_RECEIVED_TEMPLATE_NAME = process.env.WHATSAPP_CARD_RECEIVED_TEMPLATE_NAME || 'cardsync_card_received';
+const WHATSAPP_BUSINESS_CARD_TEMPLATE_NAME = process.env.WHATSAPP_BUSINESS_CARD_TEMPLATE_NAME || 'cardsync_card_received';
+const WHATSAPP_SCAN_TEMPLATE_NAME = process.env.WHATSAPP_SCAN_TEMPLATE_NAME || 'cardsync_card_received';
+
 const WA_API_URL =
 `https://graph.facebook.com/${GRAPH_VERSION}/${PHONE_NUMBER_ID}/messages`;
 const ALLOWED_ORIGIN   = process.env.ALLOWED_ORIGIN || 'http://localhost:8080';
@@ -98,12 +107,12 @@ app.post('/api/send-whatsapp', limiter, async (req, res) => {
     const payload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
-      to: "917338799034",
+      to: phone,
       type: 'template',
       template: {
-        name: "cardscan_intro",
+        name: WHATSAPP_CARD_RECEIVED_TEMPLATE_NAME,
         language: {
-          code: "en"
+          code: "en_US"
         }
       }
     };
