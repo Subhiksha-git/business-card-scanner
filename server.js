@@ -103,7 +103,7 @@ app.post('/api/send-whatsapp', limiter, async (req, res) => {
       template: {
         name: "cardscan_intro",
         language: {
-          code: "en_US"
+          code: "en"
         }
       }
     };
