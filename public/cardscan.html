@@ -2659,8 +2659,6 @@ async function _sendAutoWA(contact, opts = {}) {
  *   • All failures logged to F12 console with exact error codes
  */
 async function _sendAutoEmail(contact, opts = {}) {
-  console.log('[AutoEmail] Temporarily disabled for WhatsApp testing');
-  return { success: false, reason: 'Email disabled' };
   const email   = (contact.email   || '').trim();
   const name    = (contact.name    || '').trim();
   const company = (contact.company || '').trim();
