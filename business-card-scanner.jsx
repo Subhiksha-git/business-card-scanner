@@ -1,11 +1,13 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Tesseract from "tesseract.js";
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 const OCR_API_KEY = "K86733826488957";
 const OCR_URL     = "https://api.ocr.space/parse/image";
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 1 — FileReader → Image → Canvas pipeline
@@ -21,6 +23,7 @@ const OCR_URL     = "https://api.ocr.space/parse/image";
 function imageToBase64(file) {
   return new Promise((resolve, reject) => {
 
+
     // ── Validate MIME before touching any browser API ──────────────────────
     const ALLOWED = ["image/jpeg", "image/jpg", "image/png"];
     if (!ALLOWED.includes(file.type)) {
@@ -30,10 +33,13 @@ function imageToBase64(file) {
       return;
     }
 
+
     console.log(`📂 [imageToBase64] Reading file — name:"${file.name}" type:"${file.type}" size:${file.size}b`);
+
 
     // ── Stage 1: FileReader converts the raw file into a data-URL ─────────
     const reader = new FileReader();
+
 
     reader.onerror = () => {
       const msg = `FileReader failed: ${reader.error?.message || "unknown error"}`;
@@ -41,8 +47,10 @@ function imageToBase64(file) {
       reject(new Error(msg));
     };
 
+
     reader.onload = () => {
       const dataUrl = reader.result;
+
 
       if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
         const msg = "FileReader result is not a valid image data-URL.";
@@ -51,10 +59,13 @@ function imageToBase64(file) {
         return;
       }
 
+
       console.log(`✅ [imageToBase64] FileReader OK — prefix:"${dataUrl.substring(0, 40)}…"`);
+
 
       // ── Stage 2: Image() decodes the data-URL ──────────────────────────
       const img = new Image();
+
 
       img.onerror = (evt) => {
         const msg = "Image() could not decode the file — it may be corrupt or not a real image.";
@@ -63,8 +74,10 @@ function imageToBase64(file) {
         reject(new Error(msg));
       };
 
+
       img.onload = () => {
         console.log(`🖼  [imageToBase64] Image decoded — ${img.width}×${img.height}px`);
+
 
         // ── Stage 3: Canvas — resize to max 1800px + contrast boost ───────
         const MAX = 1800;
@@ -76,9 +89,11 @@ function imageToBase64(file) {
           console.log(`🔲 [imageToBase64] Resized to ${w}×${h}px`);
         }
 
+
         const canvas = document.createElement("canvas");
         canvas.width  = w;
         canvas.height = h;
+
 
         const ctx = canvas.getContext("2d");
         if (!ctx) {
@@ -88,7 +103,9 @@ function imageToBase64(file) {
           return;
         }
 
+
         ctx.drawImage(img, 0, 0, w, h);
+
 
         // Contrast ×1.45 — sharper edges help OCR Engine 2
         const id = ctx.getImageData(0, 0, w, h);
@@ -102,7 +119,9 @@ function imageToBase64(file) {
         }
         ctx.putImageData(id, 0, 0);
 
+
         const outputDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+
 
         if (!outputDataUrl.startsWith("data:image/jpeg;base64,")) {
           const msg = "canvas.toDataURL() did not return a valid JPEG data-URL.";
@@ -111,18 +130,23 @@ function imageToBase64(file) {
           return;
         }
 
+
         console.log(`✅ [imageToBase64] Canvas export OK — length:${outputDataUrl.length} prefix:"${outputDataUrl.substring(0, 50)}…"`);
         resolve(outputDataUrl); // full data-URL — prefix already included
       };
 
+
       img.src = dataUrl; // hand FileReader result to Image()
     };
+
 
     reader.readAsDataURL(file); // kick off the read
   });
 }
+
 function saveToQueue(item) {
   let queue = JSON.parse(localStorage.getItem("queue") || "[]");
+
 
   queue.push({
     id: Date.now(),
@@ -132,38 +156,51 @@ function saveToQueue(item) {
     createdAt: new Date().toISOString()
   });
 
+
   localStorage.setItem("queue", JSON.stringify(queue));
 }
 
+
 async function tesseractOCR(dataUrl) {
+
 
   const worker = await Tesseract.createWorker({
     logger: m => console.log("🧠 OCR Progress:", m),
+
 
     workerPath: "./worker.min.js",
     corePath: "./node_modules/tesseract.js-core/",
     langPath: "./tessdata/"
   });
 
+
   await worker.load();
   await worker.loadLanguage("eng");
   await worker.initialize("eng");
 
+
   const { data: { text } } = await worker.recognize(dataUrl);
 
+
   await worker.terminate();
+
 
   return (text || "").trim();
 }
 
+
 async function syncQueue() {
   let queue = JSON.parse(localStorage.getItem("queue") || "[]");
 
+
   if (queue.length === 0) return;
+
 
   console.log("🌐 Internet detected → syncing queue...", queue.length);
 
+
   const remaining = [];
+
 
   for (let item of queue) {
     try {
@@ -173,7 +210,9 @@ async function syncQueue() {
         body: JSON.stringify(item)
       });
 
+
       console.log("✅ Sent:", item.id);
+
 
     } catch (err) {
       console.log("❌ Failed, keeping in queue:", item.id);
@@ -181,10 +220,14 @@ async function syncQueue() {
     }
   }
 
+
   localStorage.setItem("queue", JSON.stringify(remaining));
+
 
   console.log("🎯 Sync complete. Remaining:", remaining.length);
 }
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 2 — OCR.Space API call (application/json)
 //
@@ -197,13 +240,17 @@ async function syncQueue() {
 async function runOCR(file) {
   console.group("🔍 OCR Pipeline");
 
+
   const useOfflineOCR = !navigator.onLine;
+
 
   if (useOfflineOCR) {
     console.log("📴 Offline mode → using Tesseract OCR");
 
+
     const dataUrl = await imageToBase64(file);
     const text = await tesseractOCR(dataUrl);
+
 
     saveToQueue({
       image: dataUrl,
@@ -212,13 +259,17 @@ async function runOCR(file) {
       createdAt: new Date().toISOString()
     });
 
+
     console.groupEnd();
     return text;
   }
 
+
   console.log("🌐 Online mode → OCR.Space API");
 
+
   const dataUrl = await imageToBase64(file);
+
 
   const payload = {
     apikey: OCR_API_KEY,
@@ -229,6 +280,7 @@ async function runOCR(file) {
     scale: true,
     OCREngine: 2,
   };
+
 
   let res;
   try {
@@ -243,137 +295,50 @@ async function runOCR(file) {
     throw err;
   }
 
+
   const json = await res.json();
 
+
   if (json.IsErroredOnProcessing) {
+    console.groupEnd();
     throw new Error(json.ErrorMessage);
   }
 
+
   const text = (json.ParsedResults?.[0]?.ParsedText || "").trim();
+
 
   saveToQueue({
     image: dataUrl,
     text,
     status: "online_processed",
-    createdAt: Date.now()
+    createdAt: new Date().toISOString()
   });
 
+
   console.groupEnd();
   return text;
 }
 
-  // -- 2a. Pre-process --------------------------------------------------------
-  console.log("📷 Step 1 — Converting image to base64 via FileReader…");
-  const dataUrl = await imageToBase64(file);   // full "data:image/jpeg;base64,…" string
-  console.log(`✅ Base64 ready — total length: ${dataUrl.length} chars`);
-
-  // -- 2b. Build JSON payload -------------------------------------------------
-  const payload = {
-    apikey:            OCR_API_KEY,
-    base64Image:       dataUrl,   // full data-URL — OCR.Space accepts this in JSON body
-    language:          "eng",
-    isOverlayRequired: false,
-    detectOrientation: true,
-    scale:             true,
-    OCREngine:         2,
-  };
-
-  console.log("📤 Step 2 — POSTing JSON to OCR.Space (Engine 2)…");
-  console.log(`📏 base64Image length in payload: ${dataUrl.length} chars`);
-
-  // -- 2c. Fetch (Content-Type: application/json) ----------------------------
-  let res;
-  try {
-    res = await fetch(OCR_URL, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(payload),
-    });
-  } catch (netErr) {
-    console.error("❌ Network/fetch error:", netErr);
-    console.groupEnd();
-    throw new Error("Network error — " + netErr.message);
-  }
-
-  console.log(`📡 HTTP status: ${res.status} ${res.statusText}`);
-
-  if (!res.ok) {
-    console.error("❌ Non-OK HTTP response");
-    console.groupEnd();
-    throw new Error(`HTTP ${res.status} — ${res.statusText}`);
-  }
-
-  // -- 2d. Parse JSON ---------------------------------------------------------
-  let json;
-  try {
-    json = await res.json();
-  } catch (parseErr) {
-    console.error("❌ Could not parse JSON response:", parseErr);
-    console.groupEnd();
-    throw new Error("OCR.Space returned non-JSON response");
-  }
-
-  // -- 2e. Full raw dump (the key debug step) ---------------------------------
-  console.log("📦 RAW OCR.Space response:", JSON.stringify(json, null, 2));
-  console.log("🔑 Keys in response:", Object.keys(json));
-  console.log("🔢 OCRExitCode:", json.OCRExitCode);
-  console.log("⚠️  IsErroredOnProcessing:", json.IsErroredOnProcessing);
-  console.log("🗂  ParsedResults exists:", Array.isArray(json.ParsedResults));
-  console.log("🗂  ParsedResults count:", json.ParsedResults?.length ?? 0);
-
-  // -- 2f. Error checks -------------------------------------------------------
-  if (json.IsErroredOnProcessing === true) {
-    const msg = Array.isArray(json.ErrorMessage)
-      ? json.ErrorMessage.filter(Boolean).join(" ")
-      : (json.ErrorMessage || "OCR.Space processing error");
-    console.error("❌ OCR.Space error:", msg);
-    console.groupEnd();
-    throw new Error(msg);
-  }
-
-  if (!Array.isArray(json.ParsedResults) || json.ParsedResults.length === 0) {
-    console.warn("⚠️  ParsedResults is empty or missing");
-    console.groupEnd();
-    throw new Error("OCR returned no results — try a clearer image");
-  }
-
-  // -- 2g. Extract text -------------------------------------------------------
-  const firstResult = json.ParsedResults[0];
-  console.log("📄 ParsedResults[0]:", JSON.stringify(firstResult, null, 2));
-  console.log("📝 ParsedText:", firstResult.ParsedText);
-  console.log("🚪 FileParseExitCode:", firstResult.FileParseExitCode);
-
-  const text = (firstResult.ParsedText || "").trim();
-
-  if (!text) {
-    console.warn("⚠️  ParsedText is empty");
-    console.groupEnd();
-    throw new Error("No text found in image — ensure the card is well-lit and in focus");
-  }
-
-  console.log("✅ OCR complete — extracted text length:", text.length, "chars");
-  console.log("📋 Full extracted text:\n" + text);
-  console.log("🔄 Tesseract OCR ready");
-  console.groupEnd();
-
-  return text;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 3 — Parse raw OCR text → { name, phone, email, company }
-//           Each regex is logged so you can see exactly what matched
+//            Each regex is logged so you can see exactly what matched
 // ─────────────────────────────────────────────────────────────────────────────
 function parseContact(rawText) {
   console.group("🧩 Contact Parser");
   console.log("🔥 NEW CODE RUNNING");
   console.log("📋 Input text:\n" + rawText);
 
+
   // Normalise: collapse multiple spaces, keep newlines
   const text  = rawText.replace(/[ \t]+/g, " ").trim();
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   console.log("📑 Lines:", lines);
 
+
   const result = { name: "", phone: "", email: "", company: "" };
+
 
   // ── EMAIL ──────────────────────────────────────────────────────────────────
   // Broad match; OCR sometimes replaces @ with (a) or [at]
@@ -386,6 +351,7 @@ function parseContact(rawText) {
   } else {
     console.warn("⚠️  No email found");
   }
+
 
   // ── PHONE ──────────────────────────────────────────────────────────────────
   // Match international (+91 98765 43210), local (044-2345-6789), plain blocks
@@ -411,14 +377,17 @@ function parseContact(rawText) {
     console.log("📞 Length:", result.phone.length);
     console.log("📞 Chars:", [...result.phone]);
 
+
   } else {
     console.warn("⚠️  No phone found");
   }
+
 
   // ── COMPANY ────────────────────────────────────────────────────────────────
   // Lines with explicit business-type keywords OR ALL-CAPS short names
   const coKeyRx = /\b(pvt\.?\s*ltd\.?|llc|inc\.?|corp\.?|ltd\.?|co\.?\s*ltd\.?|technologies|tech|solutions|systems|software|services|consulting|group|associates|international|enterprises|ventures|holdings|labs|studio|agency|media|global|digital)\b/i;
   const coAllCapsRx = /^[A-Z][A-Z\s&.,]{3,}$/; // e.g. "ACME CORP" or "TCS & INFOSYS"
+
 
   for (const line of lines) {
     if (!result.company) {
@@ -433,11 +402,13 @@ function parseContact(rawText) {
   }
   if (!result.company) console.warn("⚠️  No company found");
 
+
   // ── NAME ───────────────────────────────────────────────────────────────────
   // Priority 1: Title-cased 2–4 word line not matching other fields
   const nameTitleRx = /^[A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+){1,3}$/;
   // Priority 2: A line with "Mr.", "Ms.", "Dr.", "Prof." prefix
   const namePrefixRx = /^(?:Mr\.?|Ms\.?|Mrs\.?|Dr\.?|Prof\.?)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/i;
+
 
   const skipLine = (l) =>
     l === result.email ||
@@ -447,6 +418,7 @@ function parseContact(rawText) {
     coKeyRx.test(l) ||
     /\d{4,}/.test(l) ||          // long digit string = not a name
     /(?:www\.|http|\.com)/i.test(l);
+
 
   // Prefix match first
   for (const line of lines) {
@@ -476,14 +448,17 @@ function parseContact(rawText) {
   }
   if (!result.name) console.warn("⚠️  No name found");
 
+
   console.log("📇 Final parsed contact:", result);
   console.groupEnd();
   return result;
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // UI COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
+
 
 const card = {
   background:   "var(--color-background-primary)",
@@ -491,12 +466,14 @@ const card = {
   borderRadius: "var(--border-radius-lg)",
 };
 
+
 function Spinner({ size = 28, color = "var(--color-text-info)" }) {
   return (
     <i className="ti ti-loader-2 bcs-spin"
        style={{ fontSize: size, color, display: "inline-block" }} />
   );
 }
+
 
 function Avatar({ name }) {
   const ini = name
@@ -511,6 +488,7 @@ function Avatar({ name }) {
     }}>{ini}</div>
   );
 }
+
 
 function Toast({ message, type }) {
   const icon = { success: "ti-circle-check", warning: "ti-alert-triangle", danger: "ti-alert-circle" }[type] || "ti-info-circle";
@@ -528,7 +506,9 @@ function Toast({ message, type }) {
   );
 }
 
+
 // Raw OCR text debug panel (shown in UI for easy inspection)
+// ⚠️  THIS COMPONENT IS NOT USED IN YOUR UI - so it won't appear!
 function RawTextPanel({ text, onClose }) {
   return (
     <div style={{
@@ -562,13 +542,16 @@ function RawTextPanel({ text, onClose }) {
   );
 }
 
+
 function ContactCard({ contact, onDelete }) {
   const { name, phone, email, company } = contact;
   const waLink   = phone ? `https://wa.me/${phone.replace(/\D/g, "")}` : null;
   const mailHref = email ? `mailto:${email}?subject=Following up&body=Hi ${(name || "").split(" ")[0]},` : null;
 
+
   return (
     <div style={{ ...card, padding: "1rem 1.25rem", display: "flex", flexDirection: "column", gap: 12 }}>
+
 
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -589,6 +572,7 @@ function ContactCard({ contact, onDelete }) {
         </button>
       </div>
 
+
       {/* Detail rows */}
       <div style={{ borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 7 }}>
         {[
@@ -604,6 +588,7 @@ function ContactCard({ contact, onDelete }) {
           </div>
         ))}
       </div>
+
 
       {/* Action buttons */}
       {(waLink || mailHref) && (
@@ -634,15 +619,17 @@ function ContactCard({ contact, onDelete }) {
   );
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN APP
 // ─────────────────────────────────────────────────────────────────────────────
 const FIELDS = [
-  { key: "name",    label: "Full Name", icon: "ti-user"     },
+  { key: "name",    label: "Full Name", icon: "ti-user"      },
   { key: "company", label: "Company",   icon: "ti-building" },
   { key: "phone",   label: "Phone",     icon: "ti-phone"    },
   { key: "email",   label: "Email",     icon: "ti-mail"     },
 ];
+
 
 export default function App() {
   const [contacts,  setContacts]  = useState([]);
@@ -650,15 +637,16 @@ export default function App() {
   const [progress,  setProgress]  = useState("");
   const [preview,   setPreview]   = useState(null);
   const [extracted, setExtracted] = useState(null);
-  const [rawText,   setRawText]   = useState(null); // null = hidden, "" = empty result
   const [toast,     setToast]     = useState(null);
   const [dragging,  setDragging]  = useState(false);
   const inputRef  = useRef();
   const timerRef  = useRef();
+  
   useEffect(() => {
-  window.addEventListener("online", syncQueue);
-  return () => window.removeEventListener("online", syncQueue);
+    window.addEventListener("online", syncQueue);
+    return () => window.removeEventListener("online", syncQueue);
   }, []);
+
 
   const showToast = useCallback((message, type = "success", ms = 5000) => {
     clearTimeout(timerRef.current);
@@ -666,8 +654,10 @@ export default function App() {
     if (ms > 0) timerRef.current = setTimeout(() => setToast(null), ms);
   }, []);
 
+
   const handleFile = useCallback(async (file) => {
     if (!file) return;
+
 
     const ALLOWED = ["image/jpeg", "image/jpg", "image/png"];
     if (!ALLOWED.includes(file.type)) {
@@ -675,22 +665,23 @@ export default function App() {
       return;
     }
 
+
     // Reset state
     setExtracted(null);
-    setRawText(null);
     setPreview(URL.createObjectURL(file));
     setScanning(true);
     setProgress("Pre-processing image…");
 
+
     try {
       setProgress("Sending to OCR.Space API…");
       const ocrText = await runOCR(file);     // throws on any failure
-
-      setRawText(ocrText);                    // show debug panel
       setProgress("Parsing contact fields…");
+
 
       const parsed = parseContact(ocrText);
       setExtracted(parsed);
+
 
       const found = Object.values(parsed).filter(Boolean).length;
       showToast(
@@ -700,9 +691,9 @@ export default function App() {
         found > 0 ? "success" : "warning"
       );
 
+
     } catch (err) {
       console.error("💥 OCR pipeline failed:", err);
-      setRawText("");                          // show empty debug panel
       showToast(
         `OCR failed — ${err.message}. Open the browser console (F12) for full details.`,
         "danger", 0
@@ -713,32 +704,36 @@ export default function App() {
     }
   }, [showToast]);
 
+
   const onDrop = e => {
     e.preventDefault(); setDragging(false);
     const f = e.dataTransfer.files[0];
     if (f) handleFile(f);
   };
 
+
   const updateField = (key, val) => setExtracted(x => ({ ...x, [key]: val }));
+
 
   const saveContact = () => {
     if (!extracted) return;
     setContacts(c => [{ id: Date.now(), ...extracted }, ...c]);
     setExtracted(null);
     setPreview(null);
-    setRawText(null);
     showToast("✅ Contact saved!", "success");
   };
+
 
   const discard = () => {
     setPreview(null);
     setExtracted(null);
-    setRawText(null);
   };
+
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "2rem 1rem", fontFamily: "var(--font-sans)" }}>
+
 
       <style>{`
         @keyframes bcs-spin   { to { transform: rotate(360deg); } }
@@ -747,6 +742,7 @@ export default function App() {
         .bcs-drop  { animation: bcs-drop  0.22s ease both; }
         .bcs-hover-delete:hover { color: var(--color-text-danger) !important; }
       `}</style>
+
 
       {/* ── Header ── */}
       <div style={{ marginBottom: "1.75rem" }}>
@@ -761,8 +757,10 @@ export default function App() {
         </p>
       </div>
 
+
       {/* ── Toast ── */}
       {toast && <div className="bcs-drop"><Toast message={toast.message} type={toast.type} /></div>}
+
 
       {/* ── Drop zone ── */}
       <div
@@ -792,6 +790,7 @@ export default function App() {
           onChange={e => { handleFile(e.target.files[0]); e.target.value = ""; }}
         />
 
+
         {scanning ? (
           <>
             <Spinner size={34} />
@@ -815,6 +814,7 @@ export default function App() {
         )}
       </div>
 
+
       {/* ── Image preview ── */}
       {preview && (
         <div className="bcs-drop" style={{ ...card, overflow: "hidden", marginBottom: "1.25rem" }}>
@@ -837,12 +837,6 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Debug: raw OCR text panel ── */}
-      {rawText !== null && (
-        <div className="bcs-drop">
-          <RawTextPanel text={rawText} onClose={() => setRawText(null)} />
-        </div>
-      )}
 
       {/* ── Editable extracted fields ── */}
       {extracted && !scanning && (
@@ -850,6 +844,7 @@ export default function App() {
           <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-tertiary)", margin: "0 0 12px", textTransform: "uppercase", letterSpacing: "0.07em" }}>
             Extracted fields — correct if needed, then save
           </p>
+
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8, marginBottom: 14 }}>
             {FIELDS.map(({ key, label, icon }) => (
@@ -867,6 +862,7 @@ export default function App() {
               </div>
             ))}
           </div>
+
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
@@ -890,6 +886,7 @@ export default function App() {
         </div>
       )}
 
+
       {/* ── Saved contacts list ── */}
       {contacts.length > 0 && (
         <div className="bcs-drop">
@@ -904,6 +901,7 @@ export default function App() {
           </div>
         </div>
       )}
+
 
       {/* ── Empty state ── */}
       {contacts.length === 0 && !preview && !scanning && (
