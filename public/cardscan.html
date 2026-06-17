@@ -2425,28 +2425,6 @@ function formatDateTime(dt) {
   });
 }
 
-function renderContacts() {
-  const contacts = loadContacts();
-  const container = document.getElementById("contacts-grid");
-  container.innerHTML = "";
-
-  contacts.forEach(c => {
-    const savedDate = c.createdAt ? formatDateTime(c.createdAt) : "Unknown";
-    container.innerHTML += `
-      <div class="contact-card">
-        <div class="name">${c.name}</div>
-        <div class="company">${c.company}</div>
-        <div class="phone">${c.phone}</div>
-        <div class="email">${c.email}</div>
-        <div class="website">${c.website}</div>
-        <div class="saved">Saved on: ${savedDate}</div>
-      </div>
-    `;
-  });
-
-  document.getElementById("contacts-sub").textContent = `${contacts.length} contacts`;
-}
-
 function showMultiSelectModal() {
   const modal = document.getElementById('multi-select-modal');
   if (!modal) return;
