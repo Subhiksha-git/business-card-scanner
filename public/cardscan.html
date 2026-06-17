@@ -1677,16 +1677,6 @@ const PIPELINE_LABELS = [
   setApiDot(true);
 })();
 
-/* ── 3. PAGE NAVIGATION ───────────────────────────────────── */
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
-  document.querySelector(`[data-page="${id}"]`).classList.add('active');
-  if (id === 'contacts')  renderContacts();
-  if (id === 'settings')  loadSettingsForm();
-}
-
 /* ── 4. LOCAL OCR STATUS ───────────────────────────────────── */
 function saveKey() {
   showBanner('key-banner', 'info',
