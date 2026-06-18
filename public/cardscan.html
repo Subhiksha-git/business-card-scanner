@@ -3537,48 +3537,6 @@ clearOcrBanner = function() {
   if (b) { b.className = 'banner'; b.style.display = 'none'; }
 };
 
-  // ==========================================
-// FIX: Make Navigation Buttons Work
-// ==========================================
-const contactsBtn = document.querySelector('[data-page="contacts"]');
-const settingsBtn = document.querySelector('[data-page="settings"]');
-
-if (contactsBtn) {
-  contactsBtn.onclick = function() {
-    document.querySelectorAll('.page').forEach(p => { 
-      p.classList.remove('active'); 
-      p.style.display = 'none'; 
-    });
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    const page = document.getElementById('page-contacts');
-    if (page) { 
-      page.classList.add('active'); 
-      page.style.display = 'block'; 
-    }
-    contactsBtn.classList.add('active');
-    if (typeof renderContacts === 'function') renderContacts();
-  };
-}
-
-if (settingsBtn) {
-  settingsBtn.onclick = function() {
-    document.querySelectorAll('.page').forEach(p => { 
-      p.classList.remove('active'); 
-      p.style.display = 'none'; 
-    });
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    const page = document.getElementById('page-settings');
-    if (page) { 
-      page.classList.add('active'); 
-      page.style.display = 'block'; 
-    }
-    settingsBtn.classList.add('active');
-    if (typeof loadSettingsForm === 'function') loadSettingsForm();
-  };
-}
-
-console.log('✅ Navigation buttons fixed!');
-
 /* ── Boot ────────────────────────────────────────────────────── */
 setPanelState('idle');
 </script>
