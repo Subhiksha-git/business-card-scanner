@@ -1349,7 +1349,7 @@ code {
             </div>
           </div>
         </div><!-- /scan-grid -->
-      </div>
+      </div><!-- /page-body -->
     </div><!-- /page-scan -->
 
     <!-- ════════════ PAGE: CONTACTS ════════════ -->
@@ -1531,22 +1531,35 @@ code {
    PAGE NAVIGATION FIX
 ──────────────────────────── */
 function showPage(id) {
+  // Hide all pages
   document.querySelectorAll('.page')
-    .forEach(p => p.classList.remove('active'));
+    .forEach(p => { 
+      if (p && p.classList) p.classList.remove('active'); 
+    });
 
+  // Remove active from all nav buttons
   document.querySelectorAll('.nav-btn')
-    .forEach(b => b.classList.remove('active'));
+    .forEach(b => { 
+      if (b && b.classList) b.classList.remove('active'); 
+    });
 
-  document.getElementById('page-' + id)
-    .classList.add('active');
+  // Show selected page
+  const page = document.getElementById('page-' + id);
+  if (page && page.classList) {
+    page.classList.add('active');
+  }
 
-  document.querySelector(`[data-page="${id}"]`)
-    .classList.add('active');
+  // Activate nav button
+  const navBtn = document.querySelector(`[data-page="${id}"]`);
+  if (navBtn && navBtn.classList) {
+    navBtn.classList.add('active');
+  }
 
+  // Load special content
   if (id === 'contacts') renderContacts();
   if (id === 'settings') loadSettingsForm();
 }
-
+  
 /* ─────────────────────────────
    FILE UPLOAD HANDLER
 ──────────────────────────── */
