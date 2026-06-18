@@ -1014,6 +1014,21 @@ code {
   background: var(--green-bg);
 }
 
+/* FORCE FIX FOR EDGE - Make active pages visible */
+.page.active {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  position: relative !important;
+  z-index: 100 !important;
+}
+
+.page:not(.active) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
