@@ -1029,6 +1029,28 @@ code {
   visibility: hidden !important;
 }
 
+/* FIX FOR BLANK CONTACT/SETTINGS PAGES */
+.page {
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+.page.active {
+  height: auto !important;
+  min-height: 100vh !important;
+  max-height: none !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  top: 0 !important;
+  left: 0 !important;
+}
+
+.page-body {
+  min-height: 500px !important;
+}
+
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
