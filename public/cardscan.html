@@ -1570,15 +1570,17 @@ code {
 function showPage(id) {
   // Hide all pages
   document.querySelectorAll('.page')
-    .forEach(p => { 
-      if (p && p.classList) p.classList.remove('active'); 
+    .forEach(p => {
+      if (p && p.classList) p.classList.remove('active');
     });
+
 
   // Remove active from all nav buttons
   document.querySelectorAll('.nav-btn')
-    .forEach(b => { 
-      if (b && b.classList) b.classList.remove('active'); 
+    .forEach(b => {
+      if (b && b.classList) b.classList.remove('active');
     });
+
 
   // Show selected page
   const page = document.getElementById('page-' + id);
@@ -1586,20 +1588,20 @@ function showPage(id) {
     page.classList.add('active');
   }
 
+
   // Activate nav button
   const navBtn = document.querySelector(`[data-page="${id}"]`);
   if (navBtn && navBtn.classList) {
     navBtn.classList.add('active');
   }
 
+
   // Load special content
-  if (id === 'contacts') {      // ← CHANGE THIS LINE
-    loadContacts();              // ← ADD THIS LINE
-    renderContacts();
-  }
+  if (id === 'contacts') renderContacts();
   if (id === 'settings') loadSettingsForm();
 }
-window.showPage = showPage;
+window.showPage = showPage; 
+
 
 /* ─────────────────────────────
    FILE UPLOAD HANDLER
@@ -2450,15 +2452,11 @@ function _saveContactFinal(c) {
   }, 100);
 }
 
-
 // 🔓 Helper to load contacts back from localStorage
 function loadContacts() {
   const secretKey = "MyStrongSecretKey123";
   const encrypted = localStorage.getItem("cs_contacts");
-  if (!encrypted) {
-    APP.contacts = [];
-    return [];
-  }
+  if (!encrypted) return [];
 
   try {
     const bytes = CryptoJS.AES.decrypt(encrypted, secretKey);
@@ -2466,17 +2464,12 @@ function loadContacts() {
 
     if (!decrypted) {
       console.warn("No valid decrypted data");
-      APP.contacts = [];
       return [];
     }
 
-    const contacts = JSON.parse(decrypted);
-    APP.contacts = contacts;  // ← ADD THIS LINE
-    console.log('📦 Loaded contacts:', contacts.length);
-    return contacts;
+    return JSON.parse(decrypted);
   } catch (err) {
     console.error("Decrypt contacts failed:", err);
-    APP.contacts = [];
     return [];
   }
 }
