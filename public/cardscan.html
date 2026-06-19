@@ -1052,7 +1052,7 @@ code {
 }
 
 </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
 
@@ -1309,8 +1309,8 @@ code {
                   <div class="success-banner" id="success-banner">
                   <!-- <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> -->
                   <div class="success-banner-body">
-                     <div class="success-banner-title" id="success-banner-title">Extraction complete</div>
-                     <div class="success-banner-sub" id="success-banner-sub">Review fields below, then save.</div>
+                    <div class="success-banner-title" id="success-banner-title">Extraction complete</div>
+                    <div class="success-banner-sub" id="success-banner-sub">Review fields below, then save.</div>
                   </div>
                   </div>
 
@@ -1389,7 +1389,7 @@ code {
       </div><!-- /page-body -->
     </div><!-- /page-scan -->
 
-    <!-- ════════════ PAGE: CONTACTS ════════════ -->
+     ════════════ PAGE: CONTACTS ════════════ -->
     <div id="page-contacts" class="page">
       <div class="page-hdr">
         <div class="page-hdr-left">
@@ -1460,7 +1460,7 @@ code {
           <div class="emailjs-cfg">
             <div class="emailjs-cfg-title">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-              EmailJS credentials
+              EmailJS c<!--redentials
             </div>
             <div class="emailjs-cfg-sub">
               All three values are required to send emails.
@@ -1562,8 +1562,8 @@ code {
 <!-- ═══════════════════════════════════════════════════════════
      JAVASCRIPT — all logic embedded, no external dependencies
      ═══════════════════════════════════════════════════════════ -->
-
 <script>
+  
 /* ─────────────────────────────
    PAGE NAVIGATION FIX
 ──────────────────────────── */
@@ -1593,11 +1593,14 @@ function showPage(id) {
   }
 
   // Load special content
-  if (id === 'contacts') renderContacts();
+  if (id === 'contacts') {      // ← CHANGE THIS LINE
+    loadContacts();              // ← ADD THIS LINE
+    renderContacts();
+  }
   if (id === 'settings') loadSettingsForm();
 }
-window.showPage = showPage;  
-  
+window.showPage = showPage;
+
 /* ─────────────────────────────
    FILE UPLOAD HANDLER
 ──────────────────────────── */
@@ -1719,7 +1722,6 @@ const PIPELINE_LABELS = [
   'Fill form fields',
 ];
 
-
 /* ── 2. BOOT ──────────────────────────────────────────────── */
 (function boot() {
   updateStats();
@@ -1727,6 +1729,7 @@ const PIPELINE_LABELS = [
   renderContacts();
   setApiDot(true);
 })();
+
 
 /* ── 4. LOCAL OCR STATUS ───────────────────────────────────── */
 function saveKey() {
@@ -2390,9 +2393,6 @@ async function saveContact() {
   _saveContactFinal(c);
 }
 
-// ─────────────────────────────────────────────
-// Save Contact Logic (saveContact.js)
-// ─────────────────────────────────────────────
 
 // Save a contact
 function _saveContactFinal(c) {
@@ -2439,8 +2439,8 @@ function _saveContactFinal(c) {
     });
 
   // 3. Queue follow-up sends; attempt immediately if online.
-  _queueFollowup(c); 
-  
+  _queueFollowup(c);
+
   document.getElementById('page-contacts').style.setProperty('height', 'auto', 'important');
 
   // CLOSE FORM AND FORCE RELOAD
@@ -2450,11 +2450,15 @@ function _saveContactFinal(c) {
   }, 100);
 }
 
+
 // 🔓 Helper to load contacts back from localStorage
 function loadContacts() {
   const secretKey = "MyStrongSecretKey123";
   const encrypted = localStorage.getItem("cs_contacts");
-  if (!encrypted) return [];
+  if (!encrypted) {
+    APP.contacts = [];
+    return [];
+  }
 
   try {
     const bytes = CryptoJS.AES.decrypt(encrypted, secretKey);
@@ -2462,17 +2466,21 @@ function loadContacts() {
 
     if (!decrypted) {
       console.warn("No valid decrypted data");
+      APP.contacts = [];
       return [];
     }
 
-    return JSON.parse(decrypted);
+    const contacts = JSON.parse(decrypted);
+    APP.contacts = contacts;  // ← ADD THIS LINE
+    console.log('📦 Loaded contacts:', contacts.length);
+    return contacts;
   } catch (err) {
     console.error("Decrypt contacts failed:", err);
+    APP.contacts = [];
     return [];
   }
 }
 
-// 🕒 Helper to format date/time for display
 function formatDateTime(dt) {
   const d = new Date(dt); // dt is ISO string
   return d.toLocaleString('en-IN', {
@@ -2483,6 +2491,7 @@ function formatDateTime(dt) {
     minute: '2-digit'
   });
 }
+
 
 function showMultiSelectModal() {
   const modal = document.getElementById('multi-select-modal');
@@ -2572,7 +2581,8 @@ function saveSendQueue() {
   ).toString();
   localStorage.setItem("cs_send_queue", encryptedQueue);
 }
-  
+
+
 function _queueFollowup(contact) {
   const email = Boolean(contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email));
   const phone = (contact.phone || '').trim().replace(/\D/g, '');
@@ -3595,6 +3605,7 @@ clearOcrBanner = function() {
   const b = document.getElementById('ocr-banner');
   if (b) { b.className = 'banner'; b.style.display = 'none'; }
 };
+
 
 /* ── Boot ────────────────────────────────────────────────────── */
 setPanelState('idle');
