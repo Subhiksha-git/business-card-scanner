@@ -2440,6 +2440,12 @@ function _saveContactFinal(c) {
 
   // 3. Queue follow-up sends; attempt immediately if online.
   _queueFollowup(c);
+
+  // CLOSE FORM AND FORCE RELOAD
+  setTimeout(() => {
+    closeContactForm();
+    loadContacts();
+  }, 100);
 }
 
 // 🔓 Helper to load contacts back from localStorage
