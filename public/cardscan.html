@@ -2442,14 +2442,6 @@ function _saveContactFinal(c) {
 
   // 3. Queue follow-up sends; attempt immediately if online.
   _queueFollowup(c);
-
-  document.getElementById('page-contacts').style.setProperty('height', 'auto', 'important');
-
-  // CLOSE FORM AND FORCE RELOAD
-  setTimeout(() => {
-    showPage('contacts');
-    loadContacts();
-  }, 100);
 }
 
 // 🔓 Helper to load contacts back from localStorage
